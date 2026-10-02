@@ -1,39 +1,73 @@
-from flask import Flask, render_template, request, send_from_directory, redirect, url_for
+"""Local Assignment Portal - Flask backend.
+
+index.html lives in the project root so the same file also works on GitHub Pages.
+Run:  python app.py   ->  http://127.0.0.1:5000
+"""
 import os
+from datetime import datetime
+
+from flask import Flask, abort, jsonify, request, send_from_directory
+from werkzeug.utils import secure_filename
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FOLDERS = {
+    "assignments": os.path.join(BASE_DIR, "uploads", "assignments"),
+    "submissions": os.path.join(BASE_DIR, "uploads", "submissions"),
+}
+for path in FOLDERS.values():
+    os.makedirs(path, exist_ok=True)
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
 
-# Configure upload paths
-ASSIGNMENT_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads', 'assignments')
-SUBMISSION_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads', 'submissions')
 
-os.makedirs(ASSIGNMENT_FOLDER, exist_ok=True)
-os.makedirs(SUBMISSION_FOLDER, exist_ok=True)
+def list_files(kind):
+    folder = FOLDERS[kind]
+    return sorted(f for f in os.listdir(folder)
+                  if os.path.isfile(os.path.join(folder, f)) and not f.startswith("."))
 
-@app.route('/')
+
+@app.route("/")
 def index():
-    assignments = os.listdir(ASSIGNMENT_FOLDER)
-    submissions = os.listdir(SUBMISSION_FOLDER)
-    return render_template('index.html', assignments=assignments, submissions=submissions)
+    return send_from_directory(BASE_DIR, "index.html")
 
-@app.route('/upload_assignment', methods=['POST'])
-def upload_assignment():
-    file = request.files.get('file')
-    if file and file.filename:
-        file.save(os.path.join(ASSIGNMENT_FOLDER, file.filename))
-    return redirect(url_for('index'))
 
-@app.route('/upload_submission', methods=['POST'])
-def upload_submission():
-    file = request.files.get('file')
-    if file and file.filename:
-        file.save(os.path.join(SUBMISSION_FOLDER, file.filename))
-    return redirect(url_for('index'))
+@app.route("/api/list")
+def api_list():
+    return jsonify(assignments=list_files("assignments"), submissions=list_files("submissions"))
 
-@app.route('/download/<folder_type>/<filename>')
-def download_file(folder_type, filename):
-    folder = ASSIGNMENT_FOLDER if folder_type == 'assignments' else SUBMISSION_FOLDER
-    return send_from_directory(folder, filename, as_attachment=True)
 
-if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000, debug=True)
+@app.route("/api/upload/<kind>", methods=["POST"])
+def api_upload(kind):
+    if kind not in FOLDERS:
+        abort(404)
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify(error="No file selected."), 400
+    name = secure_filename(file.filename)
+    if not name:
+        return jsonify(error="Invalid file name."), 400
+    # Never overwrite an existing file: add a timestamp instead.
+    if os.path.exists(os.path.join(FOLDERS[kind], name)):
+        stem, ext = os.path.splitext(name)
+        name = f"{stem}_{datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
+    file.save(os.path.join(FOLDERS[kind], name))
+    return jsonify(ok=True, name=name)
+
+
+@app.route("/download/<kind>/<path:filename>")
+def download_file(kind, filename):
+    if kind not in FOLDERS:
+        abort(404)
+    return send_from_directory(FOLDERS[kind], filename, as_attachment=True)
+
+
+@app.errorhandler(413)
+def too_large(_e):
+    return jsonify(error="File too large (max 50 MB)."), 413
+
+
+if __name__ == "__main__":
+    host = os.environ.get("HOST", "127.0.0.1")   # set HOST=0.0.0.0 to let other devices connect
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host=host, port=port, debug=False)

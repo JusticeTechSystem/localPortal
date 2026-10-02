@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local Assignment Portal</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 30px; max-width: 800px; }
+  .box { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 5px; }
+  h2 { margin-top: 0; }
+  ul { list-style-type: square; }
+  li { margin: 4px 0; }
+  #mode { padding: 10px 14px; border-radius: 5px; margin-bottom: 20px; font-size: 14px; }
+  #mode.server { background: #dcfce7; color: #166534; }
+  #mode.static { background: #fef9c3; color: #854d0e; }
+  #msg { min-height: 1.4em; font-size: 14px; }
+  #msg.error { color: #b91c1c; }
+  #msg.ok { color: #166534; }
+  button.rm { margin-left: 8px; font-size: 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+  <h1>Local Classroom Portal</h1>
+  <div id="mode">Checking connection...</div>
+  <div id="msg"></div>
+
+  <!-- Teacher Section -->
+  <div class="box">
+    <h2>Teacher Area</h2>
+    <form id="assignmentForm">
+      <label>Upload Assignment for Students:</label>
+      <input type="file" name="file" required>
+      <button type="submit">Upload Assignment</button>
+    </form>
+    <h3>Submitted Student Works:</h3>
+    <ul id="submissionList"><li>Loading...</li></ul>
+  </div>
+
+  <!-- Student Section -->
+  <div class="box">
+    <h2>Student Area</h2>
+    <h3>Available Assignments:</h3>
+    <ul id="assignmentList"><li>Loading...</li></ul>
+    <form id="submissionForm">
+      <label>Submit Completed Work:</label>
+      <input type="file" name="file" required>
+      <button type="submit">Submit Assignment</button>
+    </form>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  let mode = "static";            // "server" when app.py is running, otherwise "static"
+  const blobUrls = [];
+
+  // ---------- small helpers ----------
+  function say(text, cls) { const m = $("msg"); m.textContent = text; m.className = cls || ""; }
+
+  function render(listEl, items, emptyText) {
+    listEl.replaceChildren();
+    if (!items.length) {
+      const li = document.createElement("li"); li.textContent = emptyText; listEl.appendChild(li); return;
+    }
+    for (const it of items) {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.textContent = it.name; a.href = it.href;
+      if (it.download) a.download = it.download;
+      li.appendChild(a);
+      if (it.onRemove) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "rm"; b.textContent = "remove";
+        b.addEventListener("click", it.onRemove);
+        li.appendChild(b);
+      }
+      listEl.appendChild(li);
+    }
+  }
+
+  // ---------- browser storage (static / GitHub Pages mode) ----------
+  const STORE = "files";
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open("local_portal", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function dbAll() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const q = db.transaction(STORE).objectStore(STORE).getAll();
+      q.onsuccess = () => resolve(q.result); q.onerror = () => reject(q.error);
+    });
+  }
+  async function dbAdd(rec) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).add(rec);
+      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function dbDelete(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).delete(id);
+      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  // ---------- load + show lists ----------
+  async function refresh() {
+    blobUrls.splice(0).forEach(URL.revokeObjectURL);
+    if (mode === "server") {
+      const data = await (await fetch("api/list", { cache: "no-store" })).json();
+      const link = (kind) => (n) => ({ name: n, href: "download/" + kind + "/" + encodeURIComponent(n) });
+      render($("assignmentList"), data.assignments.map(link("assignments")), "No assignments posted.");
+      render($("submissionList"), data.submissions.map(link("submissions")), "No submissions yet.");
+      return;
+    }
+    // static mode: published assignments come from assignments.json, the rest from this browser
+    let published = [];
+    try {
+      const r = await fetch("assignments.json", { cache: "no-store" });
+      if (r.ok) published = await r.json();
+    } catch (_) { /* no manifest, that's fine */ }
+    const local = await dbAll();
+    const localItem = (rec) => {
+      const url = URL.createObjectURL(rec.blob); blobUrls.push(url);
+      return { name: rec.name, href: url, download: rec.name,
+               onRemove: async () => { await dbDelete(rec.id); refresh(); } };
+    };
+    render($("assignmentList"), [
+      ...published.map((n) => ({ name: n, href: "uploads/assignments/" + encodeURIComponent(n), download: n })),
+      ...local.filter((r) => r.kind === "assignments").map(localItem),
+    ], "No assignments posted.");
+    render($("submissionList"), local.filter((r) => r.kind === "submissions").map(localItem),
+           "No submissions yet.");
+  }
+
+  // ---------- uploads ----------
+  async function upload(kind, form) {
+    const file = form.elements.file.files[0];
+    if (!file) return;
+    try {
+      if (mode === "server") {
+        const fd = new FormData(); fd.append("file", file);
+        const r = await fetch("api/upload/" + kind, { method: "POST", body: fd });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || "Upload failed.");
+      } else {
+        await dbAdd({ kind, name: file.name, blob: file, time: Date.now() });
+      }
+      form.reset();
+      say(kind === "assignments" ? "Assignment uploaded." : "Work submitted.", "ok");
+      await refresh();
+    } catch (err) {
+      say(err.message || "Something went wrong.", "error");
+    }
+  }
+  $("assignmentForm").addEventListener("submit", (e) => { e.preventDefault(); upload("assignments", e.target); });
+  $("submissionForm").addEventListener("submit", (e) => { e.preventDefault(); upload("submissions", e.target); });
+
+  // ---------- start ----------
+  async function init() {
+    try {
+      const r = await fetch("api/list", { cache: "no-store" });
+      if (r.ok && (r.headers.get("content-type") || "").includes("json")) mode = "server";
+    } catch (_) { /* no server reachable */ }
+    const banner = $("mode");
+    banner.className = mode;
+    banner.textContent = mode === "server"
+      ? "Connected to the portal server. Files are shared with everyone using this server."
+      : "Static mode (GitHub Pages / opened as a file): uploads are saved only in THIS browser. " +
+        "To share files between teacher and students, run app.py.";
+    try { await refresh(); } catch (err) { say("Could not load files: " + err.message, "error"); }
+  }
+  init();
+})();
+</script>
+</body>
+</html>
