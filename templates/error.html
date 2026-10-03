@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}{{ title }} · EduPortal{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<main class="auth-wrap">
+  <section class="auth-card center-text">
+    <div class="error-code">{{ code }}</div>
+    <h1 class="h-md">{{ title }}</h1>
+    <p class="muted">{{ text }}</p>
+    <a href="{{ url_for('dashboard' if session.get('role') else 'index') }}" class="btn btn-primary btn-lg btn-block">
+      {{ 'Back to dashboard' if session.get('role') else 'Back to sign in' }}
+    </a>
+  </section>
+</main>
+{% endblock %}

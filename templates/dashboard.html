@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, csrf, flashes %}
+{% set is_teacher = session['role'] == 'teacher' %}
+{% block title %}Dashboard · EduPortal{% endblock %}
+
+{% block content %}
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark sm">{{ icon('cap', 20) }}</span>
+      <span class="brand-name">EduPortal</span>
+    </div>
+    <div class="topbar-user">
+      <span class="user-chip">
+        <span class="avatar">{{ session['name'][:1]|upper }}</span>
+        <span class="user-meta"><strong>{{ session['name'] }}</strong><small>{{ 'Teacher' if is_teacher else session['user_id'] }}</small></span>
+      </span>
+      <form method="post" action="{{ url_for('logout') }}">
+        {{ csrf() }}
+        <button type="submit" class="btn btn-outline btn-sm">{{ icon('logout') }}<span class="hide-sm">Logout</span></button>
+      </form>
+    </div>
+  </div>
+  <nav class="tabs" aria-label="Sections">
+    <div class="tabs-inner">
+      <a href="#overview" class="tab" data-tab="overview">Overview</a>
+      {% if is_teacher %}
+      <a href="#students" class="tab" data-tab="students">Students</a>
+      <a href="#attendance" class="tab" data-tab="attendance">Attendance</a>
+      {% endif %}
+      <a href="#exams" class="tab" data-tab="exams">Exams</a>
+      <a href="#assignments" class="tab" data-tab="assignments">Assignments</a>
+      <a href="#submissions" class="tab" data-tab="submissions">{{ 'Submissions' if is_teacher else 'My work' }}</a>
+      <a href="#notes" class="tab" data-tab="notes">Notes</a>
+    </div>
+  </nav>
+</header>
+
+<main class="container">
+  {{ flashes() }}
+
+  <!-- ============================ OVERVIEW ============================ -->
+  <section class="panel" id="panel-overview" data-panel="overview">
+    {% if is_teacher %}
+      {% if default_password %}
+      <div class="flash flash-warn">{{ icon('alert') }}
+        <span>You are still using the <strong>default teacher password</strong>. Set the <code>TEACHER_PASSWORD</code> environment variable (see README) before sharing this portal.</span>
+      </div>
+      {% endif %}
+      <div class="stats">
+        <div class="stat"><span class="stat-ico">{{ icon('users', 20) }}</span><div><b>{{ stats.students }}</b><small>Students enrolled</small></div></div>
+        <div class="stat"><span class="stat-ico">{{ icon('monitor', 20) }}</span><div><b>{{ stats.exams }}</b><small>CBT exams</small></div></div>
+        <div class="stat"><span class="stat-ico">{{ icon('file', 20) }}</span><div><b>{{ stats.assignments }}</b><small>Assignments</small></div></div>
+        <div class="stat"><span class="stat-ico warn">{{ icon('clock', 20) }}</span><div><b>{{ stats.pending }}</b><small>Awaiting grading</small></div></div>
+      </div>
+      <div class="card">
+        <h2>Welcome back, Instructor</h2>
+        <p class="muted">Use the tabs above to issue student IDs, review attendance, publish CBT exams, post assignments, grade submissions and share class notes.</p>
+        <p class="muted small">Deadlines and attendance use <strong>{{ tz_label }}</strong>.</p>
+      </div>
+    {% else %}
+      <div class="stats">
+        <div class="stat"><span class="stat-ico">{{ icon('monitor', 20) }}</span><div><b>{{ stats.open_exams }}</b><small>Exams available</small></div></div>
+        <div class="stat"><span class="stat-ico">{{ icon('file', 20) }}</span><div><b>{{ stats.open_assignments }}</b><small>Open assignments</small></div></div>
+        <div class="stat"><span class="stat-ico ok">{{ icon('check-square', 20) }}</span><div><b>{{ stats.submitted }}</b><small>Work submitted</small></div></div>
+      </div>
+      <div class="card">
+        <h2>Welcome, {{ session['name'] }}</h2>
+        <p class="muted">Your attendance for today has been recorded. Head to <a href="#exams">Exams</a> or <a href="#assignments">Assignments</a> to see what's due.</p>
+        <p class="muted small">Deadlines use <strong>{{ tz_label }}</strong>.</p>
+      </div>
+    {% endif %}
+  </section>
+
+  {% if is_teacher %}
+  <!-- ============================ STUDENTS ============================ -->
+  <section class="panel" id="panel-students" data-panel="students">
+    <div class="card">
+      <h2>{{ icon('users', 20) }} Issue authorized student IDs</h2>
+      <form action="{{ url_for('add_student_id') }}" method="post" class="form-row">
+        {{ csrf() }}
+        <input type="text" name="name" placeholder="Student full name" required maxlength="80">
+        <input type="text" name="student_id" placeholder="Custom ID (e.g. STU-001)" required maxlength="40">
+        <button type="submit" class="btn btn-primary">{{ icon('user-plus') }} Issue ID</button>
+      </form>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Student name</th><th>Assigned ID</th><th class="right">Action</th></tr></thead>
+          <tbody>
+          {% for s in students %}
+            <tr>
+              <td>{{ s.name }}</td>
+              <td><span class="badge">{{ s.student_id }}</span></td>
+              <td class="right">
+                <form method="post" action="{{ url_for('delete_student_id', row_id=s.id) }}" data-confirm="Revoke this Student ID? Their attendance records will be removed.">
+                  {{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }} Revoke</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="3" class="empty">No IDs issued yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ ATTENDANCE ============================ -->
+  <section class="panel" id="panel-attendance" data-panel="attendance">
+    <div class="card">
+      <h2>{{ icon('clipboard', 20) }} Student attendance</h2>
+      <p class="muted small">One record is created the first time a student logs in each day. Showing the latest 300.</p>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Date</th><th>Login time</th><th>Student ID</th><th>Name</th></tr></thead>
+          <tbody>
+          {% for a in attendance %}
+            <tr>
+              <td><strong>{{ a.login_date }}</strong></td>
+              <td>{{ a.login_time }}</td>
+              <td><span class="badge">{{ a.student_id }}</span></td>
+              <td>{{ a.name or '—' }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4" class="empty">No attendance records yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- ============================ EXAMS ============================ -->
+  <section class="panel" id="panel-exams" data-panel="exams">
+    <div class="card">
+      <h2>{{ icon('monitor', 20) }} CBT exams &amp; tests</h2>
+      {% if is_teacher %}
+      <form action="{{ url_for('create_exam') }}" method="post" class="form-row">
+        {{ csrf() }}
+        <input type="text" name="title" placeholder="Exam title (e.g. Midterm Test)" required maxlength="120">
+        <label class="inline-label">Deadline
+          <input type="datetime-local" name="due_date" required>
+        </label>
+        <button type="submit" class="btn btn-primary">{{ icon('plus') }} Create exam</button>
+      </form>
+      {% endif %}
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Exam</th><th>Deadline</th><th>{{ 'Questions' if is_teacher else 'Status' }}</th><th class="right">Action</th></tr></thead>
+          <tbody>
+          {% for e in exams %}
+            <tr>
+              <td><strong>{{ e.title }}</strong></td>
+              <td><span class="due {{ 'due-closed' if e.closed else 'due-open' }}">{{ e.due_date|fmt_dt }}</span></td>
+              {% if is_teacher %}
+                <td>{{ e.q_count }} question{{ '' if e.q_count == 1 else 's' }} · {{ e.result_count }} result{{ '' if e.result_count == 1 else 's' }}</td>
+                <td class="right actions">
+                  <button type="button" class="btn btn-success btn-sm" data-toggle="add-q-{{ e.id }}">{{ icon('plus') }} Add question</button>
+                  <form method="post" action="{{ url_for('delete_exam', exam_id=e.id) }}" data-confirm="Delete this exam, its questions and all results?">
+                    {{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }} Delete</button>
+                  </form>
+                </td>
+              {% else %}
+                {% if e.id in taken %}
+                  <td><span class="badge badge-success">Score {{ taken[e.id].score }} / {{ taken[e.id].total }}</span></td>
+                  <td class="right muted small">Completed</td>
+                {% elif e.closed %}
+                  <td><span class="badge badge-danger">Closed</span></td>
+                  <td class="right muted small">—</td>
+                {% elif not e.q_count %}
+                  <td><span class="badge">No questions yet</span></td>
+                  <td class="right muted small">—</td>
+                {% else %}
+                  <td><span class="badge badge-info">Open · {{ e.q_count }} questions</span></td>
+                  <td class="right"><a href="{{ url_for('take_exam', exam_id=e.id) }}" class="btn btn-primary btn-sm">{{ icon('play') }} Start exam</a></td>
+                {% endif %}
+              {% endif %}
+            </tr>
+            {% if is_teacher %}
+            <tr id="add-q-{{ e.id }}" class="subrow" hidden>
+              <td colspan="4">
+                <form action="{{ url_for('add_question') }}" method="post" class="stack">
+                  {{ csrf() }}
+                  <strong>Add multiple-choice question to “{{ e.title }}”</strong>
+                  <input type="hidden" name="exam_id" value="{{ e.id }}">
+                  <textarea name="question" placeholder="Enter question text…" required rows="2"></textarea>
+                  <div class="grid-2">
+                    <input type="text" name="opt_a" placeholder="Option A" required>
+                    <input type="text" name="opt_b" placeholder="Option B" required>
+                    <input type="text" name="opt_c" placeholder="Option C" required>
+                    <input type="text" name="opt_d" placeholder="Option D" required>
+                  </div>
+                  <div class="form-row">
+                    <label class="inline-label">Correct answer
+                      <select name="correct_opt" required>
+                        <option value="A">Option A</option><option value="B">Option B</option>
+                        <option value="C">Option C</option><option value="D">Option D</option>
+                      </select>
+                    </label>
+                    <button type="submit" class="btn btn-success">Save question</button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+            {% endif %}
+          {% else %}
+            <tr><td colspan="4" class="empty">No exams posted yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if is_teacher and results %}
+      <h3>All student exam results</h3>
+      <div class="table-wrap scroll-y">
+        <table class="table">
+          <thead><tr><th>Exam</th><th>Student</th><th>Score</th><th>Submitted</th></tr></thead>
+          <tbody>
+          {% for r in results %}
+            <tr>
+              <td>{{ r.title }}</td>
+              <td>{{ r.name or 'Removed student' }} <span class="badge">{{ r.student_id }}</span></td>
+              <td><strong>{{ r.score }} / {{ r.total }}</strong></td>
+              <td class="small">{{ r.submitted_at }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- ============================ ASSIGNMENTS ============================ -->
+  <section class="panel" id="panel-assignments" data-panel="assignments">
+    <div class="card">
+      <h2>{{ icon('file', 20) }} Assignments</h2>
+      {% if is_teacher %}
+      <form action="{{ url_for('create_assignment') }}" method="post" enctype="multipart/form-data" class="stack">
+        {{ csrf() }}
+        <input type="text" name="title" placeholder="Assignment title" required maxlength="120">
+        <textarea name="instructions" placeholder="Instructions (optional)" rows="2"></textarea>
+        <div class="form-row">
+          <label class="inline-label">Due date <input type="datetime-local" name="due_date" required></label>
+          <label class="inline-label grow">Attachment (optional) <input type="file" name="file"></label>
+          <button type="submit" class="btn btn-primary">{{ icon('plus') }} Create assignment</button>
+        </div>
+      </form>
+      {% endif %}
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Title</th><th>Deadline</th><th>Attachment</th>{% if is_teacher %}<th class="right">Actions</th>{% endif %}</tr></thead>
+          <tbody>
+          {% for a in assignments %}
+            <tr>
+              <td><strong>{{ a.title }}</strong>{% if a.instructions %}<br><span class="muted small">{{ a.instructions }}</span>{% endif %}</td>
+              <td>{% if a.due_date %}<span class="due {{ 'due-closed' if a.closed else 'due-open' }}">{{ a.due_date|fmt_dt }}</span>{% else %}<span class="muted small">No deadline</span>{% endif %}</td>
+              <td>{% if a.filename %}<a class="file-link" href="{{ url_for('download_file', folder_type='assignments', filename=a.filename) }}">{{ icon('download', 14) }} {{ a.filename|display_name }}</a>{% else %}<span class="muted small">None</span>{% endif %}</td>
+              {% if is_teacher %}
+              <td class="right actions">
+                <button type="button" class="btn btn-outline btn-sm" data-toggle="edit-a-{{ a.id }}">{{ icon('edit') }} Edit</button>
+                <form method="post" action="{{ url_for('delete_assignment', aid=a.id) }}" data-confirm="Delete this assignment and all {{ a.sub_count }} submission(s)?">
+                  {{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }} Delete</button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+            {% if is_teacher %}
+            <tr id="edit-a-{{ a.id }}" class="subrow" hidden>
+              <td colspan="4">
+                <form action="{{ url_for('edit_assignment', aid=a.id) }}" method="post" enctype="multipart/form-data" class="stack">
+                  {{ csrf() }}
+                  <strong>Edit assignment</strong>
+                  <input type="text" name="title" value="{{ a.title }}" required maxlength="120">
+                  <textarea name="instructions" rows="2">{{ a.instructions }}</textarea>
+                  <div class="form-row">
+                    <label class="inline-label">Due date <input type="datetime-local" name="due_date" value="{{ a.due_date }}" required></label>
+                    <label class="inline-label grow">Replace file (optional) <input type="file" name="file"></label>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+            {% endif %}
+          {% else %}
+            <tr><td colspan="4" class="empty">No assignments yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SUBMISSIONS ============================ -->
+  <section class="panel" id="panel-submissions" data-panel="submissions">
+    <div class="card">
+      <h2>{{ icon('check-square', 20) }} {{ 'Submissions & grades' if is_teacher else 'Submit work & view grades' }}</h2>
+      {% if not is_teacher %}
+      <form action="{{ url_for('submit_work') }}" method="post" enctype="multipart/form-data" class="form-row panel-soft">
+        {{ csrf() }}
+        <select name="assignment_id" required class="grow">
+          <option value="">— Select assignment —</option>
+          {% for a in assignments if not a.closed %}
+            <option value="{{ a.id }}">{{ a.title }}{% if a.due_date %} (due {{ a.due_date|fmt_dt }}){% endif %}</option>
+          {% endfor %}
+        </select>
+        <input type="file" name="file" required class="grow">
+        <button type="submit" class="btn btn-primary">{{ icon('upload') }} Submit</button>
+      </form>
+      {% endif %}
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr>{% if is_teacher %}<th>Student</th>{% endif %}<th>Assignment</th><th>File</th><th>Grade</th><th>Feedback</th>{% if is_teacher %}<th>Grade action</th>{% endif %}</tr></thead>
+          <tbody>
+          {% for s in submissions %}
+            <tr>
+              {% if is_teacher %}<td><strong>{{ s.student_name or s.student_id }}</strong><br><span class="badge">{{ s.student_id }}</span></td>{% endif %}
+              <td>{{ s.assignment_title or 'Deleted assignment' }}</td>
+              <td><a class="file-link" href="{{ url_for('download_file', folder_type='submissions', filename=s.filename) }}">{{ icon('download', 14) }} View</a></td>
+              <td><span class="badge {{ 'badge-success' if s.grade != 'Pending' else '' }}">{{ s.grade }}</span></td>
+              <td class="small">{{ s.feedback }}</td>
+              {% if is_teacher %}
+              <td>
+                <form action="{{ url_for('grade_submission', sid=s.id) }}" method="post" class="form-row compact">
+                  {{ csrf() }}
+                  <input type="text" name="grade" placeholder="Grade" value="{{ s.grade if s.grade != 'Pending' else '' }}" required maxlength="20" class="w-grade">
+                  <input type="text" name="feedback" placeholder="Feedback" value="{{ s.feedback if s.feedback != 'No feedback yet' else '' }}" maxlength="500" class="w-feedback">
+                  <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+          {% else %}
+            <tr><td colspan="{{ 6 if is_teacher else 4 }}" class="empty">Nothing submitted yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ NOTES ============================ -->
+  <section class="panel" id="panel-notes" data-panel="notes">
+    <div class="card">
+      <h2>{{ icon('book', 20) }} Class notes &amp; resources</h2>
+      {% if is_teacher %}
+      <form action="{{ url_for('upload_note') }}" method="post" enctype="multipart/form-data" class="form-row">
+        {{ csrf() }}
+        <input type="text" name="title" placeholder="Note title" required maxlength="120" class="grow">
+        <input type="file" name="file" required class="grow">
+        <button type="submit" class="btn btn-primary">{{ icon('upload') }} Upload note</button>
+      </form>
+      {% endif %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Title</th><th>File</th>{% if is_teacher %}<th class="right">Action</th>{% endif %}</tr></thead>
+          <tbody>
+          {% for n in notes %}
+            <tr>
+              <td><strong>{{ n.title }}</strong></td>
+              <td><a class="file-link" href="{{ url_for('download_file', folder_type='notes', filename=n.filename) }}">{{ icon('download', 14) }} {{ n.filename|display_name }}</a></td>
+              {% if is_teacher %}
+              <td class="right">
+                <form method="post" action="{{ url_for('delete_note', nid=n.id) }}" data-confirm="Delete this note?">
+                  {{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }} Delete</button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+          {% else %}
+            <tr><td colspan="3" class="empty">No notes uploaded yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">EduPortal · by <strong>JusticeTech</strong> · times shown in {{ tz_label }}</footer>
+{% endblock %}

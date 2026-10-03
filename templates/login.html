@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, csrf, flashes %}
+{% block title %}Sign in · EduPortal{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<main class="auth-wrap">
+  <section class="auth-card">
+    <div class="brand brand-center">
+      <span class="brand-mark">{{ icon('cap', 26) }}</span>
+      <h1>EduPortal</h1>
+      <p class="muted">Attendance · CBT exams · Assignments · Class notes</p>
+    </div>
+
+    {{ flashes() }}
+
+    <form method="post" action="{{ url_for('index') }}" class="stack" autocomplete="off">
+      {{ csrf() }}
+      <div class="role-switch" role="radiogroup" aria-label="Login as">
+        <label class="role-option">
+          <input type="radio" name="role" value="student" {% if selected_role != 'teacher' %}checked{% endif %}>
+          <span>Student</span>
+        </label>
+        <label class="role-option">
+          <input type="radio" name="role" value="teacher" {% if selected_role == 'teacher' %}checked{% endif %}>
+          <span>Teacher</span>
+        </label>
+      </div>
+
+      <div class="field" data-role-field="student">
+        <label for="student_id">Issued Student ID</label>
+        <input type="text" id="student_id" name="student_id" placeholder="e.g. STU-101"
+               autocapitalize="characters" autocorrect="off" spellcheck="false">
+      </div>
+
+      <div class="field" data-role-field="teacher">
+        <label for="password">Teacher password</label>
+        <div class="password-row">
+          <input type="password" id="password" name="password" placeholder="Enter teacher password" autocomplete="current-password">
+          <button type="button" class="btn btn-ghost btn-sm" data-toggle-password="password">Show</button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block btn-lg">Enter portal</button>
+    </form>
+
+    <p class="auth-foot muted">Don't have an ID? Ask your teacher to issue one.</p>
+  </section>
+  <p class="powered muted">Powered by <strong>JusticeTech</strong></p>
+</main>
+{% endblock %}

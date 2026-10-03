@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, csrf, flashes %}
+{% block title %}{{ exam.title }} · EduPortal{% endblock %}
+
+{% block content %}
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark sm">{{ icon('cap', 20) }}</span>
+      <span class="brand-name">EduPortal</span>
+    </div>
+    <div class="topbar-user">
+      <span class="user-chip">
+        <span class="avatar">{{ session['name'][:1]|upper }}</span>
+        <span class="user-meta"><strong>{{ session['name'] }}</strong><small>{{ session['user_id'] }}</small></span>
+      </span>
+    </div>
+  </div>
+</header>
+
+<main class="container narrow">
+  {{ flashes() }}
+  <div class="card">
+    <h2>{{ icon('monitor', 20) }} {{ exam.title }}</h2>
+    <p class="muted small">
+      {{ questions|length }} question{{ '' if questions|length == 1 else 's' }} · Closes {{ exam.due_date|fmt_dt }} ({{ tz_label }}) ·
+      You can only submit once.
+    </p>
+
+    {% if questions %}
+    <form action="{{ url_for('submit_exam', exam_id=exam.id) }}" method="post" class="stack" data-confirm="Submit your final answers? You cannot retake this exam.">
+      {{ csrf() }}
+      {% for q in questions %}
+      <fieldset class="question">
+        <legend><span class="q-num">{{ loop.index }}</span> {{ q.question }}</legend>
+        {% for letter, text in (('A', q.opt_a), ('B', q.opt_b), ('C', q.opt_c), ('D', q.opt_d)) %}
+        <label class="choice">
+          <input type="radio" name="q_{{ q.id }}" value="{{ letter }}" required>
+          <span class="choice-letter">{{ letter }}</span>
+          <span>{{ text }}</span>
+        </label>
+        {% endfor %}
+      </fieldset>
+      {% endfor %}
+      <button type="submit" class="btn btn-success btn-lg btn-block">{{ icon('check-circle', 18) }} Submit final answers</button>
+    </form>
+    {% else %}
+      <p class="empty">No questions have been added to this exam yet.</p>
+    {% endif %}
+    <a href="{{ url_for('dashboard') }}#exams" class="btn btn-outline btn-block back-link">Cancel &amp; return</a>
+  </div>
+</main>
+{% endblock %}
