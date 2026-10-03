@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduPortal Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; margin: 0; padding-bottom: 40px; }
+        .header { background: white; padding: 16px 32px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10;}
+        .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; display: grid; gap: 24px; }
+        .card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: #1e293b; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;}
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+        th { background: #f8fafc; color: #64748b; font-weight: 600; }
+        .badge { background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 0.75rem; }
+        .btn { padding: 8px 12px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; transition: background 0.2s; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-success { background: #16a34a; color: white; }
+        .btn-success:hover { background: #15803d; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        form { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+        input, textarea, select { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Inter', sans-serif; }
+        .inline-form { display: flex; gap: 12px; align-items: center; flex-direction: row; }
+        .file-link { color: #2563eb; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
+        .flash-alert { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 12px; border-radius: 6px; margin-bottom: 16px; font-weight: 500; text-align:center; }
+        .exam-question-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+        .radio-label { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 4px; cursor: pointer; transition: background 0.2s; font-size: 0.95rem; }
+        .radio-label:hover { background: #e0f2fe; }
+        
+        .text-danger { color: #dc2626 !important; font-weight: 600; }
+        .text-primary { color: #0284c7 !important; }
+        .bg-success { background: #dcfce7 !important; color: #166534 !important; }
+        .bg-danger { background: #fee2e2 !important; color: #b91c1c !important; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div><strong>EduPortal</strong> | <span class="badge">{{ session['name'] }} ({{ session['user_id'] }})</span></div>
+        <a href="/logout" class="btn btn-danger"><i data-lucide="log-out" style="width: 16px; height: 16px;"></i> Logout</a>
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %} <div class="flash-alert">{{ messages[0] }}</div> {% endif %}
+        {% endwith %}
+
+        <!-- EXAM TAKING UI (STUDENT)-->
+        {% if taking_exam %}
+        <div class="card">
+            <h2><i data-lucide="pen-tool"></i> {{ exam.title }} - Ongoing Assessment</h2>
+            <form action="/submit_exam/{{ exam.id }}" method="post">
+                {% for q in questions %}
+                <div class="exam-question-box">
+                    <p style="font-weight: 600; margin-top: 0;">{{ loop.index }}. {{ q.question }}</p>
+                    <label class="radio-label"><input type="radio" name="q_{{ q.id }}" value="A" required> A) {{ q.opt_a }}</label>
+                    <label class="radio-label"><input type="radio" name="q_{{ q.id }}" value="B" required> B) {{ q.opt_b }}</label>
+                    <label class="radio-label"><input type="radio" name="q_{{ q.id }}" value="C" required> C) {{ q.opt_c }}</label>
+                    <label class="radio-label"><input type="radio" name="q_{{ q.id }}" value="D" required> D) {{ q.opt_d }}</label>
+                </div>
+                {% else %}
+                <p>No questions have been added to this exam yet.</p>
+                {% endfor %}
+                {% if questions %}
+                <button type="submit" class="btn btn-success" style="width: 100%; padding: 12px; font-size: 1rem;"><i data-lucide="check-circle"></i> Submit Final Answers</button>
+                {% endif %}
+                <a href="/dashboard" class="btn btn-danger" style="margin-top: 10px; width: 100%; text-align:center; display:block;">Cancel & Return</a>
+            </form>
+        </div>
+        
+        <!-- STANDARD DASHBOARD UI -->
+        {% else %}
+
+        <!-- 1. TEACHER ONLY: ATTENDANCE TRACKER -->
+        {% if session['role'] == 'teacher' %}
+        <div class="card">
+            <h2><i data-lucide="clipboard-check"></i> Live Student Attendance</h2>
+            <div style="max-height: 250px; overflow-y: auto;">
+                <table>
+                    <tr><th>Date</th><th>Login Time</th><th>Student ID</th><th>Name</th></tr>
+                    {% for a in attendance %}
+                    <tr>
+                        <td><strong>{{ a.login_date }}</strong></td>
+                        <td>{{ a.login_time }}</td>
+                        <td><span class="badge">{{ a.student_id }}</span></td>
+                        <td>{{ a.name }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align: center;">No attendance records found.</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+        
+        <!-- 2. TEACHER ONLY: ID MANAGEMENT (Now requires Name) -->
+        <div class="card">
+            <h2><i data-lucide="users"></i> Issue Authorized Student IDs</h2>
+            <form action="/add_student_id" method="post" class="inline-form">
+                <input type="text" name="name" placeholder="Student Full Name" required style="flex:1;">
+                <input type="text" name="student_id" placeholder="Assign Custom ID (e.g. STU-001)" required style="flex:1;">
+                <button type="submit" class="btn btn-primary"><i data-lucide="user-plus"></i> Issue ID</button>
+            </form>
+            <table>
+                <tr><th>Student Name</th><th>Assigned ID</th><th>Action</th></tr>
+                {% for s in authorized_students %}
+                <tr>
+                    <td>{{ s.name }}</td>
+                    <td><span class="badge">{{ s.student_id }}</span></td>
+                    <td><a href="/delete_student_id/{{ s.id }}" class="btn btn-danger" onclick="return confirm('Revoke this Student ID?')">Revoke</a></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" style="text-align: center;">No IDs issued yet.</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- 3. CBT EXAMS & TESTS -->
+        <div class="card">
+            <h2><i data-lucide="monitor-play"></i> CBT Exams & Tests</h2>
+            {% if session['role'] == 'teacher' %}
+            <form action="/create_exam" method="post" class="inline-form">
+                <input type="text" name="title" placeholder="Exam Title (e.g. Midterm Test)" required style="flex:1;">
+                <label style="font-size: 0.85rem; color: #475569;">Deadline:</label>
+                <input type="datetime-local" name="due_date" required>
+                <button type="submit" class="btn btn-primary"><i data-lucide="plus"></i> Create Exam</button>
+            </form>
+            {% endif %}
+
+            <table>
+                <tr><th>Exam Title</th><th>Deadline</th><th>Status / Action</th></tr>
+                {% for e in exams %}
+                <tr>
+                    <td><strong>{{ e.title }}</strong></td>
+                    <td>
+                        {% if e.due_date %}
+                            <span style="font-size: 0.85rem;" class="{% if e.due_date < current_time %}text-danger{% else %}text-primary{% endif %}">
+                                {{ e.due_date.replace('T', ' ') }}
+                            </span>
+                        {% else %}
+                            <span style="font-size: 0.85rem; color: #94a3b8;">No deadline</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if session['role'] == 'teacher' %}
+                            <button class="btn btn-success" onclick="toggleDisplay('add-q-{{ e.id }}')"><i data-lucide="plus" style="width: 14px;"></i> Add Q.</button>
+                            <a href="/delete_exam/{{ e.id }}" class="btn btn-danger" onclick="return confirm('Delete this exam and all its results?')">Delete</a>
+                        {% else %}
+                            <!-- Student View -->
+                            {% if e.id in taken_exams %}
+                                <span class="badge bg-success">Score: {{ taken_exams[e.id].score }} / {{ taken_exams[e.id].total }}</span>
+                            {% elif e.due_date and e.due_date > current_time %}
+                                <a href="/take_exam/{{ e.id }}" class="btn btn-primary"><i data-lucide="play" style="width: 14px;"></i> Start Exam</a>
+                            {% else %}
+                                <span class="badge bg-danger">Closed</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                
+                <!-- Hidden Add Question Form for Teacher -->
+                {% if session['role'] == 'teacher' %}
+                <tr id="add-q-{{ e.id }}" style="display:none; background:#f8fafc;">
+                    <td colspan="3" style="padding: 16px; border: 1px dashed #cbd5e1;">
+                        <form action="/add_question" method="post" style="margin-top:0;">
+                            <strong>Add Multiple Choice Question</strong>
+                            <input type="hidden" name="exam_id" value="{{ e.id }}">
+                            <textarea name="question" placeholder="Enter question text..." required rows="2"></textarea>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <input type="text" name="opt_a" placeholder="Option A" required>
+                                <input type="text" name="opt_b" placeholder="Option B" required>
+                                <input type="text" name="opt_c" placeholder="Option C" required>
+                                <input type="text" name="opt_d" placeholder="Option D" required>
+                            </div>
+                            <div class="inline-form">
+                                <label style="font-size: 0.9rem;">Correct Answer:</label>
+                                <select name="correct_opt" required>
+                                    <option value="A">Option A</option>
+                                    <option value="B">Option B</option>
+                                    <option value="C">Option C</option>
+                                    <option value="D">Option D</option>
+                                </select>
+                                <button type="submit" class="btn btn-success">Save Question</button>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                {% endif %}
+                
+                {% else %}
+                <tr><td colspan="3" style="text-align: center;">No exams posted yet.</td></tr>
+                {% endfor %}
+            </table>
+            
+            {% if session['role'] == 'teacher' and all_exam_results %}
+            <h3 style="font-size: 1rem; margin-top: 24px; border-bottom: 1px solid #e2e8f0;">All Student Exam Results</h3>
+            <div style="max-height: 250px; overflow-y: auto;">
+                <table>
+                    <tr><th>Exam</th><th>Student</th><th>Score</th><th>Submitted At</th></tr>
+                    {% for r in all_exam_results %}
+                    <tr>
+                        <td>{{ r.title }}</td>
+                        <td>{{ r.name }} <span class="badge">{{ r.student_id }}</span></td>
+                        <td><strong>{{ r.score }} / {{ r.total }}</strong></td>
+                        <td style="font-size: 0.85rem;">{{ r.submitted_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 4. ASSIGNMENTS SECTION -->
+        <div class="card">
+            <h2><i data-lucide="file-text"></i> Standard Assignments</h2>
+            {% if session['role'] == 'teacher' %}
+            <form action="/create_assignment" method="post" enctype="multipart/form-data">
+                <input type="text" name="title" placeholder="Assignment Title" required>
+                <textarea name="instructions" placeholder="Instructions" rows="2"></textarea>
+                <div class="inline-form">
+                    <label style="font-size: 0.85rem;">Due Date:</label>
+                    <input type="datetime-local" name="due_date" required>
+                    <input type="file" name="file">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: fit-content;">Create Assignment</button>
+            </form>
+            {% endif %}
+            <table>
+                <tr><th>Title</th><th>Deadline</th><th>Attachment</th>{% if session['role'] == 'teacher' %}<th>Actions</th>{% endif %}</tr>
+                {% for a in assignments %}
+                <tr>
+                    <td><strong>{{ a.title }}</strong><br><span style="font-size:0.8rem; color:#64748b;">{{ a.instructions }}</span></td>
+                    <td>
+                        {% if a.due_date %}
+                            <span style="font-size: 0.85rem;" class="{% if a.due_date < current_time %}text-danger{% else %}text-primary{% endif %}">
+                                {{ a.due_date.replace('T', ' ') }}
+                            </span>
+                        {% else %}
+                            <span style="font-size: 0.85rem; color: #94a3b8;">No deadline</span>
+                        {% endif %}
+                    </td>
+                    <td>{% if a.filename %}<a href="/download/assignments/{{ a.filename }}" class="file-link"><i data-lucide="download" style="width: 14px;"></i> Download</a>{% else %}None{% endif %}</td>
+                    {% if session['role'] == 'teacher' %}
+                    <td>
+                        <button class="btn btn-primary" onclick="toggleDisplay('edit-row-{{ a.id }}')">Edit</button>
+                        <a href="/delete_assignment/{{ a.id }}" class="btn btn-danger" onclick="return confirm('Delete assignment?')">Delete</a>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% if session['role'] == 'teacher' %}
+                <tr id="edit-row-{{ a.id }}" style="display:none; background:#f8fafc;">
+                    <td colspan="4" style="padding: 16px; border: 1px dashed #cbd5e1;">
+                        <form action="/edit_assignment/{{ a.id }}" method="post" enctype="multipart/form-data" style="margin-top: 0;">
+                            <strong>Edit Assignment</strong>
+                            <input type="text" name="title" value="{{ a.title }}" required>
+                            <textarea name="instructions" rows="2">{{ a.instructions }}</textarea>
+                            <input type="datetime-local" name="due_date" value="{{ a.due_date }}" required style="width: fit-content;">
+                            <label style="font-size: 0.85rem;">Replace File (Optional): <input type="file" name="file"></label>
+                            <button type="submit" class="btn btn-primary" style="width: fit-content;">Save Changes</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </table>
+        </div>
+
+        <!-- 5. SUBMISSIONS & GRADING -->
+        <div class="card">
+            <h2><i data-lucide="check-square"></i> Submissions & Grades</h2>
+            {% if session['role'] == 'student' %}
+            <div style="background: #f1f5f9; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <h3 style="margin-top: 0; font-size: 1rem; color: #334155;">Submit Assignment File</h3>
+                <form action="/submit_work" method="post" enctype="multipart/form-data" class="inline-form">
+                    <select name="assignment_id" required style="flex: 1;">
+                        <option value="">-- Select Assignment --</option>
+                        {% for a in assignments %} 
+                            <option value="{{ a.id }}">{{ a.title }} {% if a.due_date %}(Due: {{ a.due_date.replace('T', ' ') }}){% endif %}</option> 
+                        {% endfor %}
+                    </select>
+                    <input type="file" name="file" required>
+                    <button type="submit" class="btn btn-primary"><i data-lucide="upload-cloud" style="width: 16px;"></i> Submit</button>
+                </form>
+            </div>
+            {% endif %}
+            <table>
+                <tr><th>Student</th><th>Assignment</th><th>File</th><th>Grade</th><th>Feedback</th>{% if session['role'] == 'teacher' %}<th>Grade Action</th>{% endif %}</tr>
+                {% for s in submissions %}
+                <tr>
+                    <td><strong>{{ s.student_id }}</strong></td>
+                    <td>{{ s.assignment_title }}</td>
+                    <td><a href="/download/submissions/{{ s.filename }}" class="file-link"><i data-lucide="download" style="width: 14px;"></i> View</a></td>
+                    <td><span class="badge {% if s.grade != 'Pending' %}bg-success{% endif %}">{{ s.grade }}</span></td>
+                    <td>{{ s.feedback }}</td>
+                    {% if session['role'] == 'teacher' %}
+                    <td>
+                        <form action="/grade_submission/{{ s.id }}" method="post" class="inline-form" style="margin-top: 0;">
+                            <input type="text" name="grade" placeholder="Grade" value="{{ s.grade if s.grade != 'Pending' else '' }}" required style="width: 60px; padding: 6px;">
+                            <input type="text" name="feedback" placeholder="Feedback" value="{{ s.feedback if s.feedback != 'No feedback yet' else '' }}" style="width: 100px; padding: 6px;">
+                            <button type="submit" class="btn btn-primary" style="padding: 6px 10px;">Save</button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <!-- 6. CLASS NOTES -->
+        <div class="card">
+            <h2><i data-lucide="book-open"></i> Class Notes & Resources</h2>
+            {% if session['role'] == 'teacher' %}
+            <form action="/upload_note" method="post" enctype="multipart/form-data" class="inline-form">
+                <input type="text" name="title" placeholder="Note Title" required style="flex:1;">
+                <input type="file" name="file" required>
+                <button type="submit" class="btn btn-primary"><i data-lucide="upload" style="width: 16px;"></i> Upload Note</button>
+            </form>
+            {% endif %}
+            <table>
+                <tr><th>Title</th><th>File</th>{% if session['role'] == 'teacher' %}<th>Action</th>{% endif %}</tr>
+                {% for note in notes %}
+                <tr>
+                    <td><strong>{{ note.title }}</strong></td>
+                    <td><a href="/download/notes/{{ note.filename }}" class="file-link"><i data-lucide="download" style="width: 14px;"></i> {{ note.filename }}</a></td>
+                    {% if session['role'] == 'teacher' %} <td><a href="/delete_note/{{ note.id }}" class="btn btn-danger">Delete</a></td> {% endif %}
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        {% endif %}
+    </div>
+
+    <script>
+        lucide.createIcons();
+        function toggleDisplay(id) {
+            const row = document.getElementById(id);
+            row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+        }
+    </script>
+</body>
+</html>

@@ -1,187 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Local Assignment Portal</title>
-<style>
-  body { font-family: Arial, sans-serif; margin: 30px; max-width: 800px; }
-  .box { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 5px; }
-  h2 { margin-top: 0; }
-  ul { list-style-type: square; }
-  li { margin: 4px 0; }
-  #mode { padding: 10px 14px; border-radius: 5px; margin-bottom: 20px; font-size: 14px; }
-  #mode.server { background: #dcfce7; color: #166534; }
-  #mode.static { background: #fef9c3; color: #854d0e; }
-  #msg { min-height: 1.4em; font-size: 14px; }
-  #msg.error { color: #b91c1c; }
-  #msg.ok { color: #166534; }
-  button.rm { margin-left: 8px; font-size: 12px; cursor: pointer; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduPortal Access | Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: #f1f5f9; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+        .card { 
+            background: #ffffff; 
+            padding: 32px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05); 
+            border: 1px solid #e2e8f0;
+            width: 100%; 
+            max-width: 400px; 
+        }
+        h2 { 
+            margin-bottom: 20px; 
+            color: #0f172a; 
+            text-align: center; 
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .form-group { margin-bottom: 18px; }
+        label { 
+            display: block; 
+            margin-bottom: 6px; 
+            font-weight: 500; 
+            color: #334155; 
+            font-size: 0.9rem;
+        }
+        input, select { 
+            width: 100%; 
+            padding: 10px 12px; 
+            border: 1px solid #cbd5e1; 
+            border-radius: 8px; 
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        button { 
+            width: 100%; 
+            background: #2563eb; 
+            color: white; 
+            padding: 12px; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: 600; 
+            font-size: 0.95rem;
+            cursor: pointer; 
+            transition: background 0.2s;
+        }
+        button:hover { background: #1d4ed8; }
+        .flash { 
+            color: #dc2626; 
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem; 
+            margin-bottom: 16px; 
+            text-align: center; 
+            font-weight: 500; 
+        }
+    </style>
 </head>
 <body>
-  <h1>Local Classroom Portal</h1>
-  <div id="mode">Checking connection...</div>
-  <div id="msg"></div>
+    <div class="card">
+        <h2>EduPortal Access</h2>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash">{{ messages[0] }}</div>
+            {% endif %}
+        {% endwith %}
+        <form method="post">
+            <div class="form-group">
+                <label for="roleSelect">Login As</label>
+                <select name="role" id="roleSelect" onchange="toggleFields()">
+                    <option value="student">Student</option>
+                    <option value="teacher">Teacher</option>
+                </select>
+            </div>
+            <div class="form-group" id="studentField">
+                <label for="student_id">Issued Student ID</label>
+                <input type="text" id="student_id" name="student_id" placeholder="e.g. STU-101">
+            </div>
+            <div class="form-group" id="teacherField" style="display: none;">
+                <label for="password">Teacher Password</label>
+                <input type="password" id="password" name="password" placeholder="Default: admin123">
+            </div>
+            <button type="submit">Enter Portal</button>
+        </form>
+    </div>
 
-  <!-- Teacher Section -->
-  <div class="box">
-    <h2>Teacher Area</h2>
-    <form id="assignmentForm">
-      <label>Upload Assignment for Students:</label>
-      <input type="file" name="file" required>
-      <button type="submit">Upload Assignment</button>
-    </form>
-    <h3>Submitted Student Works:</h3>
-    <ul id="submissionList"><li>Loading...</li></ul>
-  </div>
-
-  <!-- Student Section -->
-  <div class="box">
-    <h2>Student Area</h2>
-    <h3>Available Assignments:</h3>
-    <ul id="assignmentList"><li>Loading...</li></ul>
-    <form id="submissionForm">
-      <label>Submit Completed Work:</label>
-      <input type="file" name="file" required>
-      <button type="submit">Submit Assignment</button>
-    </form>
-  </div>
-
-<script>
-(() => {
-  "use strict";
-  const $ = (id) => document.getElementById(id);
-  let mode = "static";            // "server" when app.py is running, otherwise "static"
-  const blobUrls = [];
-
-  // ---------- small helpers ----------
-  function say(text, cls) { const m = $("msg"); m.textContent = text; m.className = cls || ""; }
-
-  function render(listEl, items, emptyText) {
-    listEl.replaceChildren();
-    if (!items.length) {
-      const li = document.createElement("li"); li.textContent = emptyText; listEl.appendChild(li); return;
-    }
-    for (const it of items) {
-      const li = document.createElement("li");
-      const a = document.createElement("a");
-      a.textContent = it.name; a.href = it.href;
-      if (it.download) a.download = it.download;
-      li.appendChild(a);
-      if (it.onRemove) {
-        const b = document.createElement("button");
-        b.type = "button"; b.className = "rm"; b.textContent = "remove";
-        b.addEventListener("click", it.onRemove);
-        li.appendChild(b);
-      }
-      listEl.appendChild(li);
-    }
-  }
-
-  // ---------- browser storage (static / GitHub Pages mode) ----------
-  const STORE = "files";
-  function openDB() {
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open("local_portal", 1);
-      req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-  }
-  async function dbAll() {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const q = db.transaction(STORE).objectStore(STORE).getAll();
-      q.onsuccess = () => resolve(q.result); q.onerror = () => reject(q.error);
-    });
-  }
-  async function dbAdd(rec) {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).add(rec);
-      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
-    });
-  }
-  async function dbDelete(id) {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).delete(id);
-      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
-    });
-  }
-
-  // ---------- load + show lists ----------
-  async function refresh() {
-    blobUrls.splice(0).forEach(URL.revokeObjectURL);
-    if (mode === "server") {
-      const data = await (await fetch("api/list", { cache: "no-store" })).json();
-      const link = (kind) => (n) => ({ name: n, href: "download/" + kind + "/" + encodeURIComponent(n) });
-      render($("assignmentList"), data.assignments.map(link("assignments")), "No assignments posted.");
-      render($("submissionList"), data.submissions.map(link("submissions")), "No submissions yet.");
-      return;
-    }
-    // static mode: published assignments come from assignments.json, the rest from this browser
-    let published = [];
-    try {
-      const r = await fetch("assignments.json", { cache: "no-store" });
-      if (r.ok) published = await r.json();
-    } catch (_) { /* no manifest, that's fine */ }
-    const local = await dbAll();
-    const localItem = (rec) => {
-      const url = URL.createObjectURL(rec.blob); blobUrls.push(url);
-      return { name: rec.name, href: url, download: rec.name,
-               onRemove: async () => { await dbDelete(rec.id); refresh(); } };
-    };
-    render($("assignmentList"), [
-      ...published.map((n) => ({ name: n, href: "uploads/assignments/" + encodeURIComponent(n), download: n })),
-      ...local.filter((r) => r.kind === "assignments").map(localItem),
-    ], "No assignments posted.");
-    render($("submissionList"), local.filter((r) => r.kind === "submissions").map(localItem),
-           "No submissions yet.");
-  }
-
-  // ---------- uploads ----------
-  async function upload(kind, form) {
-    const file = form.elements.file.files[0];
-    if (!file) return;
-    try {
-      if (mode === "server") {
-        const fd = new FormData(); fd.append("file", file);
-        const r = await fetch("api/upload/" + kind, { method: "POST", body: fd });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(j.error || "Upload failed.");
-      } else {
-        await dbAdd({ kind, name: file.name, blob: file, time: Date.now() });
-      }
-      form.reset();
-      say(kind === "assignments" ? "Assignment uploaded." : "Work submitted.", "ok");
-      await refresh();
-    } catch (err) {
-      say(err.message || "Something went wrong.", "error");
-    }
-  }
-  $("assignmentForm").addEventListener("submit", (e) => { e.preventDefault(); upload("assignments", e.target); });
-  $("submissionForm").addEventListener("submit", (e) => { e.preventDefault(); upload("submissions", e.target); });
-
-  // ---------- start ----------
-  async function init() {
-    try {
-      const r = await fetch("api/list", { cache: "no-store" });
-      if (r.ok && (r.headers.get("content-type") || "").includes("json")) mode = "server";
-    } catch (_) { /* no server reachable */ }
-    const banner = $("mode");
-    banner.className = mode;
-    banner.textContent = mode === "server"
-      ? "Connected to the portal server. Files are shared with everyone using this server."
-      : "Static mode (GitHub Pages / opened as a file): uploads are saved only in THIS browser. " +
-        "To share files between teacher and students, run app.py.";
-    try { await refresh(); } catch (err) { say("Could not load files: " + err.message, "error"); }
-  }
-  init();
-})();
-</script>
+    <script>
+        function toggleFields() {
+            const role = document.getElementById('roleSelect').value;
+            document.getElementById('studentField').style.display = role === 'student' ? 'block' : 'none';
+            document.getElementById('teacherField').style.display = role === 'teacher' ? 'block' : 'none';
+        }
+    </script>
 </body>
 </html>
