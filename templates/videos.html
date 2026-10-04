@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf, targets, filterbox %}
+{% block title %}Videos · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Video lessons</h1>
+  <p class="muted">{% if is_staff %}Upload a lesson and students stream it right here. You'll see exactly who watched it to the end.{% else %}Watch the whole video to get credit. Skipping ahead doesn't count.{% endif %}</p></div>
+
+{% if is_staff %}
+<div class="card"><h2>{{ icon('upload', 20) }} Upload a video</h2>
+  <form action="{{ url_for('videos.upload') }}" method="post" enctype="multipart/form-data" class="stack" data-upload data-video-form>{{ csrf() }}
+    <input type="text" name="title" placeholder="Video title" required maxlength="120">
+    <textarea name="description" rows="2" placeholder="Description (optional)" maxlength="2000"></textarea>
+    <div class="form-row tight">
+      {{ targets(classes, subjects) }}
+      <label class="inline-label grow">Video file (MP4 or WebM, up to {{ max_video_mb }} MB)<input type="file" name="file" accept="video/mp4,video/webm,video/ogg,.mp4,.m4v,.webm,.ogv" required data-video-file></label>
+    </div>
+    <input type="hidden" name="duration" value="0" data-video-duration>
+    <div class="upload-progress" data-progress hidden><div class="bar"><span data-progress-bar></span></div><small data-progress-text>Uploading…</small></div>
+    <div class="row-between"><span class="muted small" data-video-info>Choose a file to begin.</span>
+      <button class="btn btn-primary" type="submit" data-submit>{{ icon('upload') }} Upload video</button></div>
+    <p class="muted small">Tip: MP4 encoded as H.264/AAC plays on every phone and laptop. Large files upload faster on the school network than over mobile data.</p>
+  </form></div>
+{% endif %}
+
+<div class="video-grid">
+{% for it in items %}{% set v = it.v %}
+  <article class="video-card">
+    <a class="video-thumb" href="{{ url_for('videos.watch', vid=v.id) }}" aria-label="Play {{ v.title }}"><span class="play">{{ icon('play', 28) }}</span><span class="dur">{{ v.duration|fmt_secs }}</span>
+      {% if not is_staff and it.completed %}<span class="done-badge">{{ icon('check-circle', 14) }} Completed</span>{% endif %}</a>
+    <div class="video-body">
+      <h3><a href="{{ url_for('videos.watch', vid=v.id) }}">{{ v.title }}</a></h3>
+      <p class="muted small">{{ v.class_name or 'All classes' }}{% if v.subject_name %} · {{ v.subject_name }}{% endif %} · {{ v.size|fmt_size }}</p>
+      {% if v.description %}<p class="small">{{ v.description }}</p>{% endif %}
+      {% if is_staff %}
+        <div class="meter" title="Completed"><span class="fill" data-width="{{ (100 * it.done / it.target)|round|int if it.target else 0 }}"></span></div>
+        <p class="small"><strong>{{ it.done }}</strong> of {{ it.target }} student{{ '' if it.target == 1 else 's' }} finished it</p>
+        <div class="btn-row"><a class="btn btn-primary btn-sm" href="{{ url_for('videos.report', vid=v.id) }}">{{ icon('users') }} Who watched</a>
+          <button type="button" class="btn btn-outline btn-sm" data-toggle="edit-v-{{ v.id }}">{{ icon('edit') }}</button>
+          <form method="post" action="{{ url_for('videos.delete', vid=v.id) }}" data-confirm="Delete this video and all viewing records?">{{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }}</button></form></div>
+        <div id="edit-v-{{ v.id }}" class="subbox" hidden><form method="post" action="{{ url_for('videos.edit', vid=v.id) }}" class="stack">{{ csrf() }}
+          <input type="text" name="title" value="{{ v.title }}" required maxlength="120"><textarea name="description" rows="2">{{ v.description }}</textarea>
+          <div class="form-row tight">{{ targets(classes, subjects, v.class_id, v.subject_id) }}</div><div><button class="btn btn-primary btn-sm">Save</button></div></form></div>
+      {% else %}
+        <div class="meter"><span class="fill {{ 'ok' if it.completed }}" data-width="{{ it.percent }}"></span></div>
+        <p class="small">{{ 'Completed ✓' if it.completed else (it.percent ~ '% watched' if it.percent else 'Not started') }}</p>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('videos.watch', vid=v.id) }}">{{ icon('play') }} {{ 'Watch again' if it.completed else ('Continue' if it.percent else 'Watch') }}</a>
+      {% endif %}
+    </div>
+  </article>
+{% else %}<div class="card"><p class="empty">No videos yet.</p></div>{% endfor %}
+</div>
+{% endblock %}

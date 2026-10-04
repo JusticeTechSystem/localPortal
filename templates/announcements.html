@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf %}
+{% block title %}Announcements · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Announcements</h1></div>
+{% if is_staff %}
+<div class="card"><h2>{{ icon('bell', 20) }} Post an announcement</h2>
+  <form method="post" action="{{ url_for('academics.create_announcement') }}" class="stack">{{ csrf() }}
+    <input type="text" name="title" placeholder="Title" required maxlength="120"><textarea name="body" rows="3" placeholder="Message (optional)" maxlength="3000"></textarea>
+    <div class="form-row tight"><label class="inline-label">Audience<select name="class_id"><option value="">Everyone</option>{% for c in classes %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
+      <label class="check"><input type="checkbox" name="pinned" value="1"> Pin to the top</label><button class="btn btn-primary">{{ icon('bell') }} Post</button></div></form></div>
+{% endif %}
+<div class="card">
+{% for a in items %}<div class="note-item"><div class="row-between"><strong>{% if a.pinned %}{{ icon('pin', 14) }} {% endif %}{{ a.title }}</strong>
+  {% if is_staff %}<div class="btn-row"><form method="post" action="{{ url_for('academics.pin_announcement', aid=a.id) }}">{{ csrf() }}<button class="btn btn-outline btn-sm">{{ 'Unpin' if a.pinned else 'Pin' }}</button></form>
+    <form method="post" action="{{ url_for('academics.delete_announcement', aid=a.id) }}" data-confirm="Delete this announcement?">{{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }}</button></form></div>{% endif %}</div>
+  <span class="muted small">{{ a.class_name or 'Everyone' }} · {{ a.created_by }} · {{ a.created_at }}</span>{% if a.body %}<p>{{ a.body|nl2br }}</p>{% endif %}</div>
+{% else %}<p class="empty">No announcements yet.</p>{% endfor %}
+</div>
+{% endblock %}

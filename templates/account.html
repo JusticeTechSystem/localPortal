@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf, avatar %}
+{% block title %}My account · {{ school.name }}{% endblock %}
+{% block content %}
+{% set staff = me.kind == 'staff' %}
+<div class="page-head"><h1>My account</h1></div>
+{% if me.must_change %}
+<div class="flash flash-warn">{{ icon('alert') }}<span>For your security, please choose your own {{ 'password' if staff else 'PIN' }} before continuing.</span></div>
+{% endif %}
+<div class="grid-cols">
+  <div class="card">
+    <h2>{{ icon('key', 20) }} Change {{ 'password' if staff else 'PIN' }}</h2>
+    <form method="post" action="{{ url_for('auth.change_password') }}" class="stack">
+      {{ csrf() }}
+      {% if not me.must_change %}
+      <div class="field"><label>Current {{ 'password' if staff else 'PIN' }}</label><input type="password" name="current_password" autocomplete="current-password" required></div>
+      {% endif %}
+      <div class="field"><label>New {{ 'password (min 8 characters)' if staff else 'PIN (min 4 characters)' }}</label><input type="password" name="new_password" autocomplete="new-password" required minlength="{{ 8 if staff else 4 }}"></div>
+      <div class="field"><label>Repeat new {{ 'password' if staff else 'PIN' }}</label><input type="password" name="confirm_password" autocomplete="new-password" required></div>
+      <button class="btn btn-primary" type="submit">Save</button>
+    </form>
+  </div>
+  {% if not staff %}
+  <div class="card">
+    <h2>{{ icon('camera', 20) }} Profile photo</h2>
+    <div class="photo-row">{{ avatar(me.id, me.name, me.photo, 'lg') }}
+      <form method="post" action="{{ url_for('auth.upload_photo') }}" enctype="multipart/form-data" class="stack grow">
+        {{ csrf() }}
+        <input type="file" name="photo" accept="image/png,image/jpeg,image/webp" required>
+        <button class="btn btn-primary" type="submit">{{ icon('upload') }} Upload photo</button>
+        <p class="muted small">PNG, JPG or WebP, up to 3 MB. Your teacher can see it next to your name.</p>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+  <div class="card">
+    <h2>{{ icon('user', 20) }} Details</h2>
+    <dl class="kv"><dt>Name</dt><dd>{{ me.name }}</dd><dt>{{ 'Username' if staff else 'Student ID' }}</dt><dd>{{ me.code }}</dd><dt>Role</dt><dd>{{ me.role|capitalize }}</dd></dl>
+    <p class="muted small">Use the moon/sun button at the top to switch dark mode.</p>
+    <button type="button" class="btn btn-outline btn-sm" data-install hidden>Install app on this device</button>
+  </div>
+</div>
+{% endblock %}

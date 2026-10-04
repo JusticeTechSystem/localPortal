@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf, targets, filterbox %}
+{% block title %}Exams · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head row-between"><h1>CBT exams</h1>
+  {% if is_staff %}<a class="btn btn-outline btn-sm" href="{{ url_for('reports.export_results') }}">{{ icon('download') }} Export all results</a>{% endif %}</div>
+
+{% if is_staff %}
+<div class="card"><h2>{{ icon('plus', 20) }} Create an exam</h2>
+  <form action="{{ url_for('academics.create_exam') }}" method="post" class="stack">{{ csrf() }}
+    <input type="text" name="title" placeholder="Exam title (e.g. Mid-term Test)" required maxlength="120">
+    <div class="form-row tight">
+      <label class="inline-label">Deadline<input type="datetime-local" name="due_date" required></label>
+      <label class="inline-label">Time limit (minutes, 0 = none)<input type="number" name="duration_min" min="0" max="600" value="0"></label>
+      {{ targets(classes, subjects) }}
+      <label class="inline-label">Show answers<select name="review_mode">{% for k, label in review_modes %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></label>
+    </div>
+    <label class="check"><input type="checkbox" name="shuffle" value="1" checked> Shuffle question and option order for each student</label>
+    <div><button class="btn btn-primary" type="submit">{{ icon('plus') }} Create &amp; add questions</button></div>
+  </form></div>
+{% endif %}
+
+<div class="card">
+  <div class="toolbar">{{ filterbox('tbl-exams', 'Search exams…') }}</div>
+  <div class="table-wrap"><table class="table" id="tbl-exams">
+    <thead><tr><th>Exam</th><th>For</th><th>Deadline</th><th>{{ 'Questions' if is_staff else 'Status' }}</th><th class="right">Action</th></tr></thead><tbody>
+    {% for e in exams %}
+    <tr>
+      <td><strong>{{ e.title }}</strong>{% if e.subject_name %}<br><span class="muted small">{{ e.subject_name }}</span>{% endif %}
+        {% if e.duration_min %}<br><span class="badge badge-info">{{ icon('clock', 12) }} {{ e.duration_min }} min</span>{% endif %}</td>
+      <td>{{ e.class_name or 'All classes' }}</td>
+      <td><span class="due {{ 'due-closed' if e.closed else 'due-open' }}">{{ e.due_date|fmt_dt }}</span></td>
+      {% if is_staff %}
+        <td>{{ e.q_count }} question{{ '' if e.q_count == 1 else 's' }} · {{ e.result_count }} result{{ '' if e.result_count == 1 else 's' }}</td>
+        <td class="right actions">
+          <a class="btn btn-success btn-sm" href="{{ url_for('academics.exam_questions', eid=e.id) }}">{{ icon('list') }} Questions</a>
+          <a class="btn btn-outline btn-sm" href="{{ url_for('academics.exam_results', eid=e.id) }}">{{ icon('chart') }} Results</a>
+          <button type="button" class="btn btn-outline btn-sm" data-toggle="edit-e-{{ e.id }}">{{ icon('edit') }}</button>
+          <form method="post" action="{{ url_for('academics.delete_exam', eid=e.id) }}" data-confirm="Delete this exam, its questions and all results?">{{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }}</button></form></td>
+      {% else %}
+        {% set r = mine.get(e.id) %}{% set at = attempts.get(e.id) %}
+        {% if r %}
+          <td>{% if r.status == 'timeout' %}<span class="badge badge-danger">Not submitted</span>{% else %}<span class="badge badge-success">Score {{ r.score }} / {{ r.total }}</span>{% endif %}</td>
+          <td class="right">{% if e.review_ok and r.status != 'timeout' %}<a class="btn btn-outline btn-sm" href="{{ url_for('academics.review', rid=r.id) }}">{{ icon('eye') }} Review answers</a>{% else %}<span class="muted small">Completed</span>{% endif %}</td>
+        {% elif e.closed and not at %}<td><span class="badge badge-danger">Closed</span></td><td class="right muted small">—</td>
+        {% elif not e.q_count %}<td><span class="badge">No questions yet</span></td><td class="right muted small">—</td>
+        {% else %}<td><span class="badge badge-info">{{ 'In progress' if at else 'Open' }} · {{ e.q_count }} questions</span></td>
+          <td class="right"><a class="btn btn-primary btn-sm" href="{{ url_for('academics.take_exam', eid=e.id) }}">{{ icon('play') }} {{ 'Resume' if at else 'Start exam' }}</a></td>{% endif %}
+      {% endif %}
+    </tr>
+    {% if is_staff %}
+    <tr id="edit-e-{{ e.id }}" class="subrow" hidden><td colspan="5">
+      <form method="post" action="{{ url_for('academics.edit_exam', eid=e.id) }}" class="stack">{{ csrf() }}
+        <input type="text" name="title" value="{{ e.title }}" required maxlength="120">
+        <div class="form-row tight">
+          <label class="inline-label">Deadline<input type="datetime-local" name="due_date" value="{{ e.due_date }}" required></label>
+          <label class="inline-label">Time limit (min)<input type="number" name="duration_min" min="0" max="600" value="{{ e.duration_min or 0 }}"></label>
+          {{ targets(classes, subjects, e.class_id, e.subject_id) }}
+          <label class="inline-label">Show answers<select name="review_mode">{% for k, label in review_modes %}<option value="{{ k }}" {{ 'selected' if e.review_mode == k }}>{{ label }}</option>{% endfor %}</select></label>
+        </div>
+        <label class="check"><input type="checkbox" name="shuffle" value="1" {{ 'checked' if e.shuffle }}> Shuffle questions and options</label>
+        <div><button class="btn btn-primary btn-sm">Save changes</button></div></form></td></tr>
+    {% endif %}
+    {% else %}<tr><td colspan="5" class="empty">No exams posted yet.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf, filterbox, avatar %}
+{% block title %}Students · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head row-between"><h1>Students</h1>
+  <div class="btn-row"><a class="btn btn-outline btn-sm" href="{{ url_for('reports.export_students') }}">{{ icon('download') }} Export CSV</a></div></div>
+
+<div class="grid-cols">
+  <div class="card"><h2>{{ icon('user-plus', 20) }} Add a student</h2>
+    <form action="{{ url_for('people.add_student') }}" method="post" class="stack">{{ csrf() }}
+      <input type="text" name="name" placeholder="Full name" required maxlength="80">
+      <div class="form-row tight">
+        <input type="text" name="student_id" placeholder="Student ID (blank = automatic)" maxlength="40">
+        <label class="inline-label">Class<select name="class_id"><option value="">— no class —</option>
+          {% for c in classes %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
+      </div>
+      <button class="btn btn-primary" type="submit">{{ icon('plus') }} Add student</button>
+      <p class="muted small">A temporary PIN is generated and shown once. The student chooses their own PIN at first sign-in.</p>
+    </form></div>
+  <div class="card"><h2>{{ icon('upload', 20) }} Import from CSV</h2>
+    <form action="{{ url_for('people.import_students') }}" method="post" enctype="multipart/form-data" class="stack">{{ csrf() }}
+      <input type="file" name="file" accept=".csv,text/csv" required>
+      <button class="btn btn-primary" type="submit">{{ icon('upload') }} Import students</button>
+      <p class="muted small">Columns: <code>full_name</code>, <code>student_id</code> (optional), <code>class</code> (created if new). <a href="{{ url_for('people.students_template') }}">Download a template</a>.</p>
+    </form></div>
+</div>
+
+<div class="card">
+  <div class="toolbar">
+    {{ filterbox('tbl-students', 'Search name or ID…') }}
+    <form method="get" class="inline-form"><label class="inline-label">Class
+      <select name="class_id" data-autosubmit><option value="">All classes</option>
+        {% for c in classes %}<option value="{{ c.id }}" {{ 'selected' if class_filter == c.id }}>{{ c.name }}</option>{% endfor %}</select></label></form>
+  </div>
+  <div class="table-wrap"><table class="table" id="tbl-students">
+    <thead><tr><th>Student</th><th>ID</th><th>Class</th><th>Status</th><th class="right">Actions</th></tr></thead><tbody>
+    {% for s in students %}
+      <tr {% if s.active == 0 %}class="row-muted"{% endif %}>
+        <td><div class="person">{{ avatar(s.id, s.name, s.photo, 'sm') }}<a href="{{ url_for('people.profile', sid=s.id) }}"><strong>{{ s.name }}</strong></a></div></td>
+        <td><span class="badge">{{ s.student_id }}</span></td>
+        <td>{{ s.class_name or '—' }}</td>
+        <td>{% if s.active == 0 %}<span class="badge badge-danger">Deactivated</span>{% elif not s.pin_hash %}<span class="badge badge-warn">No PIN yet</span>{% elif s.must_change_pin %}<span class="badge badge-info">Awaiting first sign-in</span>{% else %}<span class="badge badge-success">Active</span>{% endif %}</td>
+        <td class="right actions">
+          <button type="button" class="btn btn-outline btn-sm" data-toggle="edit-s-{{ s.id }}">{{ icon('edit') }} Edit</button>
+          <form method="post" action="{{ url_for('people.reset_pin', sid=s.id) }}" data-confirm="Generate a new temporary PIN for {{ s.name }}?">{{ csrf() }}<button class="btn btn-outline btn-sm">{{ icon('key') }} Reset PIN</button></form>
+        </td></tr>
+      <tr id="edit-s-{{ s.id }}" class="subrow" hidden><td colspan="5">
+        <form method="post" action="{{ url_for('people.edit_student', sid=s.id) }}" class="form-row tight">{{ csrf() }}
+          <label class="inline-label grow">Full name<input type="text" name="name" value="{{ s.name }}" required maxlength="80"></label>
+          <label class="inline-label">Student ID<input type="text" name="student_id" value="{{ s.student_id }}" required maxlength="40"></label>
+          <label class="inline-label">Class<select name="class_id"><option value="">— none —</option>
+            {% for c in classes %}<option value="{{ c.id }}" {{ 'selected' if s.class_id == c.id }}>{{ c.name }}</option>{% endfor %}</select></label>
+          <button class="btn btn-primary btn-sm">Save</button></form>
+        <div class="form-row tight">
+          <form method="post" action="{{ url_for('people.student_photo', sid=s.id) }}" enctype="multipart/form-data" class="form-row tight">{{ csrf() }}
+            <input type="file" name="photo" accept="image/png,image/jpeg,image/webp" required><button class="btn btn-outline btn-sm">{{ icon('camera') }} Set photo</button></form>
+          <form method="post" action="{{ url_for('people.toggle_student', sid=s.id) }}">{{ csrf() }}<button class="btn btn-outline btn-sm">{{ 'Re-activate' if s.active == 0 else 'Deactivate (keep history)' }}</button></form>
+          <form method="post" action="{{ url_for('people.delete_student', sid=s.id) }}" data-confirm="Permanently revoke this ID and delete their attendance and viewing records?">{{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }} Delete</button></form>
+        </div></td></tr>
+    {% else %}<tr><td colspan="5" class="empty">No students yet. Add one above or import a CSV.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+{% endblock %}

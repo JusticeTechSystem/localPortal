@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf, avatar %}
+{% block title %}{{ s.name }} · {{ school.name }}{% endblock %}
+{% block content %}
+{% set own = me.kind == 'student' %}
+<div class="page-head row-between">
+  <div class="person big">{{ avatar(s.id, s.name, s.photo, 'lg') }}<div><h1>{{ s.name }}</h1>
+    <p class="muted"><span class="badge">{{ s.student_id }}</span> {{ s.class_name or 'No class assigned' }}{% if s.active == 0 %} · <span class="badge badge-danger">Deactivated</span>{% endif %}</p></div></div>
+  <div class="btn-row"><a class="btn btn-primary btn-sm" href="{{ url_for('reports.report_card', sid=s.id) }}">{{ icon('download') }} Report card (PDF)</a>
+    <a class="btn btn-outline btn-sm" href="{{ url_for('reports.report_card', sid=s.id, format='html') }}" target="_blank">{{ icon('printer') }} Print view</a></div>
+</div>
+<div class="stats">
+  <div class="stat"><span class="stat-ico">{{ icon('calendar', 20) }}</span><div><b>{{ summary.present }}{% if summary.school_days %}<small class="of"> / {{ summary.school_days }}</small>{% endif %}</b><small>Days present{% if summary.attendance_pct is not none %} ({{ summary.attendance_pct }}%){% endif %}</small></div></div>
+  <div class="stat"><span class="stat-ico">{{ icon('chart', 20) }}</span><div><b>{{ summary.average ~ '%' if summary.average is not none else '—' }}</b><small>Exam average</small></div></div>
+  <div class="stat"><span class="stat-ico">{{ icon('monitor', 20) }}</span><div><b>{{ summary.exams|length }}</b><small>Exams taken</small></div></div>
+  <div class="stat"><span class="stat-ico ok">{{ icon('video', 20) }}</span><div><b>{{ summary.videos|selectattr('completed_at')|list|length }}<small class="of"> / {{ summary.videos|length }}</small></b><small>Videos completed</small></div></div>
+</div>
+<div class="card"><h2>{{ icon('chart', 20) }} Exam score history</h2>
+  {% if summary.chart %}<div class="chart-wrap">{{ summary.chart }}</div>{% else %}<p class="empty">No exams taken yet.</p>{% endif %}
+  {% if summary.exams %}<div class="table-wrap"><table class="table"><thead><tr><th>Exam</th><th>Score</th><th>%</th><th>Date</th><th class="right"></th></tr></thead><tbody>
+    {% for e in summary.exams %}<tr><td>{{ e.title }}{% if e.status == 'timeout' %} <span class="badge badge-danger">Not submitted</span>{% endif %}</td><td>{{ e.score }} / {{ e.total }}</td><td>{{ e.score|pct(e.total) }}%</td><td class="small">{{ e.submitted_at }}</td>
+      <td class="right"><a class="btn btn-outline btn-sm" href="{{ url_for('academics.review', rid=e.id) }}">Review</a></td></tr>{% endfor %}</tbody></table></div>{% endif %}
+</div>
+<div class="grid-cols">
+  <div class="card"><h2>{{ icon('file', 20) }} Assignments</h2>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Assignment</th><th>Grade</th></tr></thead><tbody>
+    {% for x in summary.subs %}{% set fg = x.grade|final_grade(x.penalty_pct) %}<tr><td>{{ x.title or 'Deleted assignment' }}{% if x.late %} <span class="badge badge-warn">Late</span>{% endif %}</td>
+      <td><span class="badge {{ 'badge-success' if x.grade != 'Pending' }}">{{ x.grade }}</span>{% if fg %} → <strong>{{ fg }}</strong> <span class="muted small">after {{ x.penalty_pct }}% penalty</span>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="2" class="empty">No work submitted yet.</td></tr>{% endfor %}</tbody></table></div></div>
+  <div class="card"><h2>{{ icon('video', 20) }} Videos</h2>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Video</th><th>Progress</th></tr></thead><tbody>
+    {% for v in summary.videos %}<tr><td>{{ v.title }}</td><td>{% if v.completed_at %}<span class="badge badge-success">Completed</span>{% elif v.watched %}<span class="badge badge-info">{{ (100 * v.watched / v.duration)|round|int if v.duration else 0 }}%</span>{% else %}<span class="badge">Not started</span>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="2" class="empty">No videos.</td></tr>{% endfor %}</tbody></table></div></div>
+</div>
+{% endblock %}

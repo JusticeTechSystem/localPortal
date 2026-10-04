@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf %}
+{% block title %}Questions · {{ exam.title }}{% endblock %}
+{% macro qform(q=None) %}
+  {% set t = (q.qtype if q else 'mcq') or 'mcq' %}
+  <div class="form-row tight">
+    <label class="inline-label">Type<select name="qtype" data-qtype>
+      <option value="mcq" {{ 'selected' if t == 'mcq' }}>Multiple choice</option><option value="tf" {{ 'selected' if t == 'tf' }}>True / False</option><option value="short" {{ 'selected' if t == 'short' }}>Short answer</option></select></label>
+    <label class="inline-label">Points<input type="number" name="points" min="1" max="100" value="{{ q.points if q and q.points else 1 }}"></label>
+  </div>
+  <textarea name="question" rows="2" placeholder="Question text…" required>{{ q.question if q }}</textarea>
+  <div data-qfields="mcq" class="stack">
+    <div class="grid-2">
+      <input type="text" name="opt_a" placeholder="Option A" value="{{ q.opt_a if q and t == 'mcq' }}">
+      <input type="text" name="opt_b" placeholder="Option B" value="{{ q.opt_b if q and t == 'mcq' }}">
+      <input type="text" name="opt_c" placeholder="Option C" value="{{ q.opt_c if q and t == 'mcq' }}">
+      <input type="text" name="opt_d" placeholder="Option D" value="{{ q.opt_d if q and t == 'mcq' }}"></div>
+    <label class="inline-label">Correct option<select name="correct_opt">{% for l in 'ABCD' %}<option value="{{ l }}" {{ 'selected' if q and t == 'mcq' and q.correct_opt == l }}>Option {{ l }}</option>{% endfor %}</select></label>
+  </div>
+  <div data-qfields="tf"><label class="inline-label">Correct answer<select name="correct_tf"><option value="A" {{ 'selected' if q and t == 'tf' and q.correct_opt == 'A' }}>True</option><option value="B" {{ 'selected' if q and t == 'tf' and q.correct_opt == 'B' }}>False</option></select></label></div>
+  <div data-qfields="short"><label class="inline-label">Accepted answers (separate alternatives with |)<input type="text" name="accepted" placeholder="Paris|paris" value="{{ q.correct_opt if q and t == 'short' }}"></label>
+    <span class="muted small">Matching ignores capital letters and extra spaces.</span></div>
+  <div class="form-row tight"><label class="inline-label grow">Picture (optional)<input type="file" name="image" accept="image/png,image/jpeg,image/webp"></label>
+    {% if q and q.image %}<label class="check"><input type="checkbox" name="remove_image" value="1"> Remove current picture</label>{% endif %}</div>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head row-between"><div><h1>{{ exam.title }}</h1><p class="muted">{{ questions|length }} question{{ '' if questions|length == 1 else 's' }} · {{ total }} point{{ '' if total == 1 else 's' }} in total</p></div>
+  <a class="btn btn-outline btn-sm" href="{{ url_for('academics.exams') }}">← All exams</a></div>
+
+<div class="grid-cols">
+  <div class="card"><h2>{{ icon('plus', 20) }} Add a question</h2>
+    <form method="post" action="{{ url_for('academics.add_question', eid=exam.id) }}" enctype="multipart/form-data" class="stack">{{ csrf() }}
+      {{ qform() }}<div><button class="btn btn-primary">{{ icon('plus') }} Add question</button></div></form></div>
+  <div class="card"><h2>{{ icon('upload', 20) }} Import from CSV</h2>
+    <form method="post" action="{{ url_for('academics.import_questions', eid=exam.id) }}" enctype="multipart/form-data" class="stack">{{ csrf() }}
+      <input type="file" name="file" accept=".csv,text/csv" required><button class="btn btn-primary">{{ icon('upload') }} Import questions</button></form>
+    <p class="muted small">Columns: <code>type</code> (mcq / tf / short), <code>question</code>, <code>a</code>–<code>d</code>, <code>answer</code>, <code>points</code>. <a href="{{ url_for('academics.questions_template') }}">Download a template</a>.</p></div>
+</div>
+
+<div class="card"><h2>{{ icon('list', 20) }} Questions</h2>
+{% for q in questions %}
+  <div class="qcard">
+    <div class="qhead"><span class="q-num">{{ loop.index }}</span><div class="grow"><strong>{{ q.question }}</strong>
+      <div class="muted small">{{ {'mcq': 'Multiple choice', 'tf': 'True / False', 'short': 'Short answer'}[q.qtype or 'mcq'] }} · {{ q.points or 1 }} pt</div></div>
+      <div class="btn-row"><button type="button" class="btn btn-outline btn-sm" data-toggle="edit-q-{{ q.id }}">{{ icon('edit') }} Edit</button>
+      <form method="post" action="{{ url_for('academics.delete_question', qid=q.id) }}" data-confirm="Delete this question?">{{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }}</button></form></div></div>
+    {% if q.image %}<img class="q-img" src="{{ url_for('academics.question_image', qid=q.id) }}" alt="Question picture">{% endif %}
+    {% if (q.qtype or 'mcq') == 'mcq' %}<ol class="opts" type="A">{% for l, t in (('A', q.opt_a), ('B', q.opt_b), ('C', q.opt_c), ('D', q.opt_d)) %}<li class="{{ 'correct' if q.correct_opt == l }}">{{ t }}</li>{% endfor %}</ol>
+    {% elif q.qtype == 'tf' %}<p class="muted">Correct: <strong>{{ 'True' if q.correct_opt == 'A' else 'False' }}</strong></p>
+    {% else %}<p class="muted">Accepted: <strong>{{ q.correct_opt.replace('|', ' / ') }}</strong></p>{% endif %}
+    <div id="edit-q-{{ q.id }}" class="subbox" hidden>
+      <form method="post" action="{{ url_for('academics.edit_question', qid=q.id) }}" enctype="multipart/form-data" class="stack">{{ csrf() }}
+        {{ qform(q) }}<div><button class="btn btn-primary btn-sm">Save changes</button></div></form></div>
+  </div>
+{% else %}<p class="empty">No questions yet — add the first one above.</p>{% endfor %}
+</div>
+{% endblock %}

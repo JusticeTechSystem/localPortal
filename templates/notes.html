@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf, targets, filterbox %}
+{% block title %}Notes · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Class notes &amp; resources</h1></div>
+{% if is_staff %}
+<div class="card"><h2>{{ icon('upload', 20) }} Upload a note</h2>
+  <form action="{{ url_for('academics.upload_note') }}" method="post" enctype="multipart/form-data" class="form-row">{{ csrf() }}
+    <input type="text" name="title" placeholder="Title" required maxlength="120"><input type="file" name="file" required>
+    {{ targets(classes, subjects) }}<button class="btn btn-primary">{{ icon('upload') }} Upload</button></form></div>
+{% endif %}
+<div class="card"><div class="toolbar">{{ filterbox('tbl-notes', 'Search notes…') }}</div>
+<div class="table-wrap"><table class="table" id="tbl-notes"><thead><tr><th>Title</th><th>For</th><th>File</th>{% if is_staff %}<th class="right">Action</th>{% endif %}</tr></thead><tbody>
+{% for n in notes %}<tr><td><strong>{{ n.title }}</strong>{% if n.subject_name %} <span class="badge">{{ n.subject_name }}</span>{% endif %}</td><td>{{ n.class_name or 'All classes' }}</td>
+  <td><a class="file-link" href="{{ url_for('academics.download_file', folder_type='notes', filename=n.filename) }}">{{ icon('download', 14) }} {{ n.filename|display_name }}</a></td>
+  {% if is_staff %}<td class="right"><form method="post" action="{{ url_for('academics.delete_note', nid=n.id) }}" data-confirm="Delete this note?">{{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }}</button></form></td>{% endif %}</tr>
+{% else %}<tr><td colspan="4" class="empty">No notes uploaded yet.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf, targets, filterbox %}
+{% block title %}Assignments · {{ school.name }}{% endblock %}
+{% macro policy_fields(a=None) %}
+  <label class="inline-label">Late work<select name="late_policy" data-policy>{% for k, label in late_policies %}<option value="{{ k }}" {{ 'selected' if a and a.late_policy == k }}>{{ label }}</option>{% endfor %}</select></label>
+  <label class="inline-label" data-policy-penalty>Penalty %<input type="number" name="late_penalty" min="0" max="100" value="{{ a.late_penalty if a and a.late_penalty else 10 }}"></label>
+{% endmacro %}
+{% block content %}
+<div class="page-head row-between"><h1>Assignments</h1>
+  {% if is_staff %}<a class="btn btn-outline btn-sm" href="{{ url_for('reports.export_grades') }}">{{ icon('download') }} Export grades</a>{% endif %}</div>
+
+{% if is_staff %}
+<div class="card"><h2>{{ icon('plus', 20) }} New assignment</h2>
+  <form action="{{ url_for('academics.create_assignment') }}" method="post" enctype="multipart/form-data" class="stack">{{ csrf() }}
+    <input type="text" name="title" placeholder="Assignment title" required maxlength="120">
+    <textarea name="instructions" placeholder="Instructions (optional)" rows="2"></textarea>
+    <div class="form-row tight">
+      <label class="inline-label">Due date<input type="datetime-local" name="due_date" required></label>
+      {{ targets(classes, subjects) }}{{ policy_fields() }}
+      <label class="inline-label grow">Attachment (optional)<input type="file" name="file"></label></div>
+    <div><button class="btn btn-primary" type="submit">{{ icon('plus') }} Create assignment</button></div></form></div>
+{% endif %}
+
+<div class="card">
+  <div class="toolbar">{{ filterbox('tbl-asg', 'Search assignments…') }}</div>
+  <div class="table-wrap"><table class="table" id="tbl-asg">
+    <thead><tr><th>Assignment</th><th>For</th><th>Deadline</th><th>File</th><th class="right">{{ 'Actions' if is_staff else 'Your work' }}</th></tr></thead><tbody>
+    {% for a in assignments %}
+    <tr><td><strong>{{ a.title }}</strong>{% if a.subject_name %} <span class="badge">{{ a.subject_name }}</span>{% endif %}{% if a.instructions %}<br><span class="muted small">{{ a.instructions }}</span>{% endif %}</td>
+      <td>{{ a.class_name or 'All classes' }}</td>
+      <td><span class="due {{ 'due-closed' if a.closed else 'due-open' }}">{{ a.due_date|fmt_dt }}</span>
+        <br><span class="muted small">{% if a.late_policy == 'reject' %}No late work{% elif a.late_policy == 'allow' %}Late work flagged{% else %}Late: −{{ a.late_penalty }}%{% endif %}</span></td>
+      <td>{% if a.filename %}<a class="file-link" href="{{ url_for('academics.download_file', folder_type='assignments', filename=a.filename) }}">{{ icon('download', 14) }} {{ a.filename|display_name }}</a>{% else %}<span class="muted small">None</span>{% endif %}</td>
+      <td class="right actions">
+      {% if is_staff %}
+        <a class="btn btn-outline btn-sm" href="{{ url_for('academics.submissions', assignment_id=a.id) }}">{{ a.sub_count }} submitted</a>
+        <button type="button" class="btn btn-outline btn-sm" data-toggle="edit-a-{{ a.id }}">{{ icon('edit') }}</button>
+        <form method="post" action="{{ url_for('academics.delete_assignment', aid=a.id) }}" data-confirm="Delete this assignment and all {{ a.sub_count }} submission(s)?">{{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }}</button></form>
+      {% else %}
+        {% set m = mine.get(a.id) %}
+        {% if m %}<span class="badge {{ 'badge-success' if m.grade != 'Pending' }}">{{ m.grade }}</span>{% if m.late %} <span class="badge badge-warn">Late</span>{% endif %}
+        {% elif a.closed and a.late_policy == 'reject' %}<span class="badge badge-danger">Closed</span>
+        {% else %}<button type="button" class="btn btn-primary btn-sm" data-toggle="sub-{{ a.id }}">{{ icon('upload') }} {{ 'Submit late' if a.closed else 'Submit' }}</button>{% endif %}
+      {% endif %}</td></tr>
+    {% if is_staff %}
+    <tr id="edit-a-{{ a.id }}" class="subrow" hidden><td colspan="5">
+      <form action="{{ url_for('academics.edit_assignment', aid=a.id) }}" method="post" enctype="multipart/form-data" class="stack">{{ csrf() }}
+        <input type="text" name="title" value="{{ a.title }}" required maxlength="120"><textarea name="instructions" rows="2">{{ a.instructions }}</textarea>
+        <div class="form-row tight"><label class="inline-label">Due date<input type="datetime-local" name="due_date" value="{{ a.due_date }}" required></label>
+          {{ targets(classes, subjects, a.class_id, a.subject_id) }}{{ policy_fields(a) }}
+          <label class="inline-label grow">Replace file<input type="file" name="file"></label></div>
+        <div><button class="btn btn-primary btn-sm">Save changes</button></div></form></td></tr>
+    {% elif not mine.get(a.id) and not (a.closed and a.late_policy == 'reject') %}
+    <tr id="sub-{{ a.id }}" class="subrow" hidden><td colspan="5">
+      <form action="{{ url_for('academics.submit_work', aid=a.id) }}" method="post" enctype="multipart/form-data" class="form-row tight">{{ csrf() }}
+        <input type="file" name="file" required class="grow"><button class="btn btn-primary btn-sm">{{ icon('upload') }} Send</button></form>
+      {% if a.closed %}<p class="muted small">The deadline has passed — this will be marked late{% if a.late_policy == 'penalty' %} and a {{ a.late_penalty }}% penalty applies{% endif %}.</p>{% endif %}</td></tr>
+    {% endif %}
+    {% else %}<tr><td colspan="5" class="empty">No assignments yet.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+{% endblock %}

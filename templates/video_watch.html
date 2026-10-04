@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}{{ v.title }} · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head row-between"><div><h1>{{ v.title }}</h1><p class="muted small">{{ v.duration|fmt_secs }} · uploaded {{ v.created_at }}{% if v.created_by %} by {{ v.created_by }}{% endif %}</p></div>
+  <a class="btn btn-outline btn-sm" href="{{ url_for('videos.library') }}">← All videos</a></div>
+<div class="player-wrap">
+  <video id="player" class="player" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture
+         data-video-id="{{ v.id }}" data-tracked="{{ 1 if tracked else 0 }}" data-duration="{{ v.duration }}" data-resume="{{ resume }}" data-furthest="{{ furthest }}"
+         data-progress-url="{{ url_for('videos.progress', vid=v.id) }}" data-completed="{{ 1 if progress.completed else 0 }}">
+    <source src="{{ url_for('videos.stream', vid=v.id) }}" type="{{ mime }}">
+    Your browser cannot play this video.
+  </video>
+  <div class="player-overlay" id="player-msg" hidden></div>
+</div>
+{% if tracked %}
+<div class="card watch-status" id="watch-status">
+  <div class="row-between"><strong id="watch-label">{% if progress.completed %}{{ icon('check-circle', 18) }} Completed — thank you for watching!{% else %}Watch to the end to get credit{% endif %}</strong>
+    <span class="badge" id="watch-pct">{{ progress.percent }}%</span></div>
+  <div class="meter lg"><span class="fill {{ 'ok' if progress.completed }}" id="watch-fill" data-width="{{ progress.percent }}"></span></div>
+  <p class="muted small">Skipping ahead isn't counted, and the video pauses if you switch to another tab or app. Credit is recorded automatically at about {{ threshold|fmt_secs }} of watching.</p>
+</div>
+{% else %}
+<div class="flash flash-info"><span>Teacher preview — viewing here is not recorded. See <a href="{{ url_for('videos.report', vid=v.id) }}">who has watched</a>.</span></div>
+{% endif %}
+{% if v.description %}<div class="card"><h2>About this video</h2><p>{{ v.description|nl2br }}</p></div>{% endif %}
+{% endblock %}

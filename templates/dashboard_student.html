@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Dashboard · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Hi, {{ me.name.split(' ')[0] }} 👋</h1><p class="muted">Your attendance for today is recorded. You have been present on {{ present }} day{{ '' if present == 1 else 's' }}.</p></div>
+<div class="stats">
+  <a class="stat" href="{{ url_for('academics.exams') }}"><span class="stat-ico">{{ icon('monitor', 20) }}</span><div><b>{{ exams|length }}</b><small>Exams to take</small></div></a>
+  <a class="stat" href="{{ url_for('academics.assignments') }}"><span class="stat-ico">{{ icon('file', 20) }}</span><div><b>{{ assignments|length }}</b><small>To submit</small></div></a>
+  <a class="stat" href="{{ url_for('videos.library') }}"><span class="stat-ico">{{ icon('video', 20) }}</span><div><b>{{ videos|length }}</b><small>Videos to finish</small></div></a>
+</div>
+<div class="grid-cols">
+  <div class="card"><h2>{{ icon('bell', 20) }} Announcements</h2>
+    {% for a in announcements %}<div class="note-item"><strong>{% if a.pinned %}{{ icon('pin', 14) }} {% endif %}{{ a.title }}</strong>
+      <span class="muted small">{{ a.class_name or 'Everyone' }} · {{ a.created_at }}</span>{% if a.body %}<p>{{ a.body|nl2br }}</p>{% endif %}</div>
+    {% else %}<p class="empty">No announcements.</p>{% endfor %}</div>
+  <div class="card"><h2>{{ icon('clock', 20) }} Coming up</h2>
+    <ul class="plain">
+    {% for e in exams %}<li>{{ icon('monitor', 15) }} <a href="{{ url_for('academics.exams') }}"><strong>{{ e.title }}</strong></a> <span class="muted small">closes {{ e.due_date|fmt_dt }}{% if e.duration_min %} · {{ e.duration_min }} min{% endif %}</span></li>{% endfor %}
+    {% for a in assignments %}<li>{{ icon('file', 15) }} <a href="{{ url_for('academics.assignments') }}"><strong>{{ a.title }}</strong></a> <span class="muted small">due {{ a.due_date|fmt_dt }}</span></li>{% endfor %}
+    {% for v in videos %}<li>{{ icon('video', 15) }} <a href="{{ url_for('videos.watch', vid=v.id) }}"><strong>{{ v.title }}</strong></a> <span class="muted small">{{ v.duration|fmt_secs }}</span></li>{% endfor %}
+    {% if not exams and not assignments and not videos %}<li class="empty">You're all caught up. 🎉</li>{% endif %}
+    </ul></div>
+</div>
+{% endblock %}

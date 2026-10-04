@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf, filterbox %}
+{% block title %}Results · {{ exam.title }}{% endblock %}
+{% block content %}
+<div class="page-head row-between"><div><h1>{{ exam.title }} — results</h1><p class="muted">{{ results|length }} result{{ '' if results|length == 1 else 's' }}</p></div>
+  <div class="btn-row"><a class="btn btn-primary btn-sm" href="{{ url_for('academics.exam_results_csv', eid=exam.id) }}">{{ icon('download') }} Export CSV</a><a class="btn btn-outline btn-sm" href="{{ url_for('academics.exams') }}">← All exams</a></div></div>
+<div class="card"><div class="toolbar">{{ filterbox('tbl-res', 'Search student…') }}</div>
+<div class="table-wrap"><table class="table" id="tbl-res"><thead><tr><th>Student</th><th>Class</th><th>Score</th><th>%</th><th>Status</th><th>Submitted</th><th class="right">Actions</th></tr></thead><tbody>
+{% for r in results %}<tr><td><a href="{{ url_for('people.profile', sid=r.srow) if r.srow else '#' }}"><strong>{{ r.name or 'Removed student' }}</strong></a> <span class="badge">{{ r.student_id }}</span></td>
+  <td>{{ r.class_name or '—' }}</td><td><strong>{{ r.score }} / {{ r.total }}</strong></td><td>{{ r.score|pct(r.total) }}%</td>
+  <td>{% if r.status == 'timeout' %}<span class="badge badge-danger">Not submitted</span>{% else %}<span class="badge badge-success">Submitted</span>{% endif %}</td><td class="small">{{ r.submitted_at }}</td>
+  <td class="right actions"><a class="btn btn-outline btn-sm" href="{{ url_for('academics.review', rid=r.id) }}">{{ icon('eye') }} Answers</a>
+    <form method="post" action="{{ url_for('academics.reset_result', rid=r.id) }}" data-confirm="Remove this result so the student can retake the exam?">{{ csrf() }}<button class="btn btn-outline btn-sm">Allow retake</button></form></td></tr>
+{% else %}<tr><td colspan="7" class="empty">Nobody has taken this exam yet.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

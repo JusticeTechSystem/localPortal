@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf %}
+{% block title %}Settings · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Settings</h1><p class="muted">Branding and behaviour — no files to edit.</p></div>
+<form method="post" action="{{ url_for('admin.settings') }}" enctype="multipart/form-data" class="stack">{{ csrf() }}
+<div class="grid-cols">
+  <div class="card"><h2>{{ icon('home', 20) }} School / class</h2>
+    <div class="field"><label>Name (shown in the header, login page and report cards)</label><input type="text" name="school_name" value="{{ s.school_name }}" required maxlength="60"></div>
+    <div class="field"><label>Tagline</label><input type="text" name="tagline" value="{{ s.tagline }}" maxlength="120"></div>
+    <div class="field"><label>Logo (PNG, JPG or WebP, up to 3 MB)</label><input type="file" name="logo" accept="image/png,image/jpeg,image/webp">
+      {% if s.has_logo %}<div class="logo-preview"><img src="{{ url_for('main.branding_logo') }}" alt="Current logo"><label class="check"><input type="checkbox" name="remove_logo" value="1"> Remove current logo</label></div>{% endif %}</div>
+    <div class="field"><label>Accent colour</label><input type="color" name="accent" value="{{ s.accent }}" class="color-input"></div></div>
+  <div class="card"><h2>{{ icon('clock', 20) }} Behaviour</h2>
+    <div class="field"><label>Timezone (e.g. Africa/Lagos) — used for deadlines, attendance and exam clocks</label><input type="text" name="timezone" value="{{ s.timezone }}" placeholder="Leave blank to use the server's clock" list="tz-list" autocapitalize="none">
+      <datalist id="tz-list"><option value="Africa/Lagos"><option value="Africa/Accra"><option value="Africa/Nairobi"><option value="Africa/Johannesburg"><option value="Europe/London"><option value="America/New_York"><option value="Asia/Kolkata"><option value="UTC"></datalist>
+      <p class="muted small">Currently showing: <strong>{{ tz_label }}</strong></p></div>
+    <div class="field"><label>A video counts as "watched completely" at (50–100 %)</label><input type="number" name="video_completion_pct" min="50" max="100" value="{{ s.video_completion_pct }}"></div>
+    <label class="check"><input type="checkbox" name="backup_enabled" value="1" {{ 'checked' if s.backup_enabled }}> Take an automatic daily database snapshot</label>
+    <div class="field"><label>Keep this many snapshots</label><input type="number" name="backup_keep" min="1" max="60" value="{{ s.backup_keep }}"></div></div>
+</div>
+<div><button class="btn btn-primary btn-lg">Save settings</button></div>
+</form>
+{% endblock %}

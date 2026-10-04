@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf, filterbox %}
+{% block title %}{{ 'Submissions' if is_staff else 'My work' }} · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head row-between"><h1>{{ 'Submissions & grades' if is_staff else 'My work & grades' }}</h1>
+  {% if is_staff %}<a class="btn btn-outline btn-sm" href="{{ url_for('reports.export_grades') }}">{{ icon('download') }} Export grades</a>{% endif %}</div>
+<div class="card">
+  {% if is_staff %}
+  <div class="toolbar">{{ filterbox('tbl-sub', 'Search student or assignment…') }}
+    <form method="get" class="inline-form form-row tight">
+      <label class="inline-label">Assignment<select name="assignment_id" data-autosubmit><option value="">All</option>{% for a in assignments %}<option value="{{ a.id }}" {{ 'selected' if filters.assignment_id == a.id }}>{{ a.title }}</option>{% endfor %}</select></label>
+      <label class="inline-label">Class<select name="class_id" data-autosubmit><option value="">All</option>{% for c in classes %}<option value="{{ c.id }}" {{ 'selected' if filters.class_id == c.id }}>{{ c.name }}</option>{% endfor %}</select></label>
+      <label class="inline-label">Show<select name="status" data-autosubmit><option value="">Everything</option><option value="pending" {{ 'selected' if filters.status == 'pending' }}>Awaiting grading</option><option value="graded" {{ 'selected' if filters.status == 'graded' }}>Graded</option><option value="late" {{ 'selected' if filters.status == 'late' }}>Late only</option></select></label>
+    </form></div>
+  {% endif %}
+  <div class="table-wrap"><table class="table" id="tbl-sub"><thead><tr>
+    {% if is_staff %}<th>Student</th><th>Class</th>{% endif %}<th>Assignment</th><th>Submitted</th><th>File</th><th>Grade</th><th>Feedback</th>{% if is_staff %}<th>Grade it</th>{% endif %}</tr></thead><tbody>
+  {% for s in submissions %}{% set fg = s.grade|final_grade(s.penalty_pct) %}
+    <tr>{% if is_staff %}<td><a href="{{ url_for('people.profile', sid=s.srow) if s.srow else '#' }}"><strong>{{ s.student_name or s.student_id }}</strong></a><br><span class="badge">{{ s.student_id }}</span></td><td>{{ s.class_name or '—' }}</td>{% endif %}
+      <td>{{ s.assignment_title or 'Deleted assignment' }}</td>
+      <td class="small">{{ s.submitted_at or '—' }}{% if s.late %}<br><span class="badge badge-warn">Late{% if s.penalty_pct %} −{{ s.penalty_pct }}%{% endif %}</span>{% endif %}</td>
+      <td><a class="file-link" href="{{ url_for('academics.download_file', folder_type='submissions', filename=s.filename) }}">{{ icon('download', 14) }} Open</a></td>
+      <td><span class="badge {{ 'badge-success' if s.grade != 'Pending' }}">{{ s.grade }}</span>{% if fg %}<br><span class="small">→ <strong>{{ fg }}</strong> after penalty</span>{% endif %}</td>
+      <td class="small">{{ s.feedback }}</td>
+      {% if is_staff %}<td><form action="{{ url_for('academics.grade_submission', sid=s.id) }}" method="post" class="form-row compact">{{ csrf() }}
+        <input type="text" name="grade" placeholder="Grade" value="{{ s.grade if s.grade != 'Pending' else '' }}" required maxlength="20" class="w-grade">
+        <input type="text" name="feedback" placeholder="Feedback" value="{{ s.feedback if s.feedback != 'No feedback yet' else '' }}" maxlength="500" class="w-feedback"><button class="btn btn-primary btn-sm">Save</button></form></td>{% endif %}</tr>
+  {% else %}<tr><td colspan="{{ 8 if is_staff else 5 }}" class="empty">Nothing submitted yet.</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% if not is_staff %}<p class="muted small">To submit work, open <a href="{{ url_for('academics.assignments') }}">Assignments</a>.</p>{% endif %}
+</div>
+{% endblock %}

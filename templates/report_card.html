@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Report card · {{ s.name }}{% endblock %}
+{% block body_class %}print-page{% endblock %}
+{% block body %}
+<div class="rc-bar no-print"><button type="button" class="btn btn-primary" data-print>{{ icon('printer') }} Print / Save as PDF</button>
+  <a class="btn btn-outline" href="{{ url_for('people.profile', sid=s.id) }}">← Back</a></div>
+<article class="report-card">
+  <header class="rc-head"><div><h1>{{ school.name }}</h1><p>Student report card</p><p class="muted small">Generated {{ today }}</p></div>
+    {% if s.photo %}<img class="rc-photo" src="{{ url_for('auth.photo', sid=s.id) }}" alt="">{% endif %}</header>
+  <table class="rc-info"><tr><th>Name</th><td>{{ s.name }}</td><th>Student ID</th><td>{{ s.student_id }}</td></tr>
+    <tr><th>Class</th><td>{{ s.class_name or '—' }}</td><th>Attendance</th><td>{{ summary.present }} of {{ summary.school_days }} days{% if summary.attendance_pct is not none %} ({{ summary.attendance_pct }}%){% endif %}</td></tr>
+    <tr><th>Exam average</th><td>{{ summary.average ~ '%' if summary.average is not none else '—' }}</td><th>Videos completed</th><td>{{ summary.videos|selectattr('completed_at')|list|length }} of {{ summary.videos|length }}</td></tr></table>
+  <h2>CBT exam results</h2>
+  <table class="rc-table"><thead><tr><th>Exam</th><th>Score</th><th>Percent</th><th>Date</th></tr></thead><tbody>
+  {% for e in summary.exams %}<tr><td>{{ e.title }}</td><td>{{ e.score }} / {{ e.total }}</td><td>{{ e.score|pct(e.total) }}%</td><td>{{ (e.submitted_at or '')[:10] }}</td></tr>{% else %}<tr><td colspan="4">No exams taken yet.</td></tr>{% endfor %}</tbody></table>
+  <h2>Assignments</h2>
+  <table class="rc-table"><thead><tr><th>Assignment</th><th>Grade</th><th>Note</th></tr></thead><tbody>
+  {% for x in summary.subs %}{% set fg = x.grade|final_grade(x.penalty_pct) %}<tr><td>{{ x.title or 'Deleted assignment' }}</td><td>{{ x.grade }}{% if fg %} → {{ fg }} after {{ x.penalty_pct }}% late penalty{% endif %}</td><td>{{ 'Late. ' if x.late }}{{ x.feedback if x.feedback != 'No feedback yet' else '' }}</td></tr>{% else %}<tr><td colspan="3">No work submitted yet.</td></tr>{% endfor %}</tbody></table>
+  <div class="rc-sign"><span>Teacher's signature</span><span>Date</span></div>
+</article>
+{% endblock %}

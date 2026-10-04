@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf %}
+{% block title %}Backups · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Backups</h1><p class="muted">Protect your students' data. Automatic daily snapshots are {{ 'ON' if enabled else 'OFF' }} (change in Settings).</p></div>
+<div class="grid-cols">
+  <div class="card"><h2>{{ icon('download', 20) }} Download a full backup</h2>
+    <form method="post" action="{{ url_for('admin.backup_download') }}" class="stack">{{ csrf() }}
+      <p class="muted">A zip with the database plus all uploaded files (notes, assignments, submissions, photos, question pictures).</p>
+      <label class="check"><input type="checkbox" name="include_videos" value="1"> Also include videos (can be very large)</label>
+      <div><button class="btn btn-primary">{{ icon('download') }} Download backup (.zip)</button></div></form>
+    <div class="flash flash-warn mt">{{ icon('alert') }}<span>Snapshots below live on the <em>same disk</em> as the portal. If your host wipes its disk, they go too — <strong>download a full backup regularly</strong> and keep it somewhere else.</span></div></div>
+  <div class="card"><h2>{{ icon('database', 20) }} Database snapshots on the server</h2>
+    <form method="post" action="{{ url_for('admin.backup_create') }}">{{ csrf() }}<button class="btn btn-outline">{{ icon('plus') }} Take a snapshot now</button></form>
+    <div class="table-wrap mt"><table class="table"><thead><tr><th>Snapshot</th><th>When</th><th>Size</th><th class="right"></th></tr></thead><tbody>
+    {% for b in items %}<tr><td><code>{{ b.name }}</code></td><td class="small">{{ b.when }}</td><td class="small">{{ b.size|fmt_size }}</td><td class="right"><a class="btn btn-outline btn-sm" href="{{ url_for('admin.backup_file', name=b.name) }}">{{ icon('download') }}</a></td></tr>
+    {% else %}<tr><td colspan="4" class="empty">No snapshots yet.</td></tr>{% endfor %}</tbody></table></div></div>
+</div>
+<div class="card"><h2>How to restore</h2><ol class="steps"><li>Stop the portal.</li><li>Unzip the backup. Replace <code>data/classroom.db</code> with the backup's <code>classroom.db</code> (or a snapshot file renamed to <code>classroom.db</code>).</li><li>Copy the backup's <code>uploads</code> folder over <code>data/uploads</code>.</li><li>Start the portal again.</li></ol></div>
+{% endblock %}

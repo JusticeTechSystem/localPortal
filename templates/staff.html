@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf %}
+{% block title %}Staff · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Staff accounts</h1><p class="muted">Administrators manage staff, settings, backups and the audit log. Teachers manage classes, students and teaching content.</p></div>
+<div class="card"><h2>{{ icon('user-plus', 20) }} Add a staff member</h2>
+  <form method="post" action="{{ url_for('people.add_staff') }}" class="form-row">{{ csrf() }}
+    <input type="text" name="full_name" placeholder="Full name" required maxlength="80">
+    <input type="text" name="username" placeholder="Username (letters/numbers)" required maxlength="32" autocapitalize="none">
+    <label class="inline-label">Role<select name="role"><option value="teacher">Teacher</option><option value="admin">Administrator</option></select></label>
+    <button class="btn btn-primary">{{ icon('plus') }} Create account</button></form>
+  <p class="muted small">A temporary password is shown once; the person must choose their own at first sign-in.</p></div>
+<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Last sign-in</th><th>Status</th><th class="right">Actions</th></tr></thead><tbody>
+{% for u in staff %}<tr><td><strong>{{ u.full_name }}</strong>{% if u.id == me.id %} <span class="badge badge-info">You</span>{% endif %}</td><td><code>{{ u.username }}</code></td>
+  <td><span class="badge {{ 'badge-info' if u.role == 'admin' }}">{{ u.role|capitalize }}</span></td><td class="small">{{ u.last_login or 'never' }}</td>
+  <td>{% if u.active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-danger">Disabled</span>{% endif %}</td>
+  <td class="right actions">
+    <form method="post" action="{{ url_for('people.reset_staff', uid=u.id) }}" data-confirm="Generate a new temporary password for {{ u.full_name }}?">{{ csrf() }}<button class="btn btn-outline btn-sm">{{ icon('key') }} Reset</button></form>
+    {% if u.id != me.id %}
+    <form method="post" action="{{ url_for('people.update_staff', uid=u.id) }}">{{ csrf() }}<input type="hidden" name="action" value="{{ 'make_teacher' if u.role == 'admin' else 'make_admin' }}"><button class="btn btn-outline btn-sm">{{ 'Make teacher' if u.role == 'admin' else 'Make admin' }}</button></form>
+    <form method="post" action="{{ url_for('people.update_staff', uid=u.id) }}" data-confirm="{{ 'Disable' if u.active else 'Enable' }} this account?">{{ csrf() }}<input type="hidden" name="action" value="{{ 'deactivate' if u.active else 'activate' }}"><button class="btn btn-{{ 'danger' if u.active else 'outline' }} btn-sm">{{ 'Disable' if u.active else 'Enable' }}</button></form>
+    {% endif %}</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf %}
+{% block title %}Classes & subjects · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Classes &amp; subjects</h1><p class="muted">Group students into classes, then aim exams, assignments, notes, videos and announcements at a class (or everyone).</p></div>
+<div class="grid-cols">
+  <div class="card"><h2>{{ icon('layers', 20) }} Classes</h2>
+    <form method="post" action="{{ url_for('people.add_class') }}" class="form-row">{{ csrf() }}<input type="text" name="name" placeholder="e.g. JSS1 A" required maxlength="60"><button class="btn btn-primary">{{ icon('plus') }} Add class</button></form>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Class</th><th>Students</th><th class="right">Actions</th></tr></thead><tbody>
+    {% for c in classes %}<tr><td><strong>{{ c.name }}</strong></td><td><a href="{{ url_for('people.students', class_id=c.id) }}">{{ c.n }} student{{ '' if c.n == 1 else 's' }}</a></td>
+      <td class="right actions"><button type="button" class="btn btn-outline btn-sm" data-toggle="rn-{{ c.id }}">{{ icon('edit') }} Rename</button>
+        <form method="post" action="{{ url_for('people.delete_class', cid=c.id) }}" data-confirm="Delete this class? Students become unassigned and its content becomes visible to everyone.">{{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }}</button></form></td></tr>
+      <tr id="rn-{{ c.id }}" class="subrow" hidden><td colspan="3"><form method="post" action="{{ url_for('people.rename_class', cid=c.id) }}" class="form-row tight">{{ csrf() }}<input type="text" name="name" value="{{ c.name }}" required maxlength="60"><button class="btn btn-primary btn-sm">Save</button></form></td></tr>
+    {% else %}<tr><td colspan="3" class="empty">No classes yet.</td></tr>{% endfor %}</tbody></table></div></div>
+  <div class="card"><h2>{{ icon('book', 20) }} Subjects</h2>
+    <form method="post" action="{{ url_for('people.add_subject') }}" class="form-row">{{ csrf() }}<input type="text" name="name" placeholder="e.g. Mathematics" required maxlength="60"><button class="btn btn-primary">{{ icon('plus') }} Add subject</button></form>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Subject</th><th class="right">Action</th></tr></thead><tbody>
+    {% for s in subjects %}<tr><td><strong>{{ s.name }}</strong></td><td class="right"><form method="post" action="{{ url_for('people.delete_subject', sid=s.id) }}" data-confirm="Delete this subject?">{{ csrf() }}<button class="btn btn-danger btn-sm">{{ icon('trash') }}</button></form></td></tr>
+    {% else %}<tr><td colspan="2" class="empty">No subjects yet.</td></tr>{% endfor %}</tbody></table></div></div>
+</div>
+{% endblock %}

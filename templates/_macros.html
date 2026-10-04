@@ -17,3 +17,40 @@
   {% endif %}
 {% endwith %}
 {%- endmacro %}
+
+{# class + subject pickers for "who is this for?" #}
+{% macro targets(classes, subjects, class_id=None, subject_id=None, with_subject=True) -%}
+<label class="inline-label">For class
+  <select name="class_id">
+    <option value="">All classes</option>
+    {% for c in classes %}<option value="{{ c.id }}" {{ 'selected' if class_id == c.id }}>{{ c.name }}</option>{% endfor %}
+  </select>
+</label>
+{% if with_subject %}
+<label class="inline-label">Subject
+  <select name="subject_id">
+    <option value="">— none —</option>
+    {% for s in subjects %}<option value="{{ s.id }}" {{ 'selected' if subject_id == s.id }}>{{ s.name }}</option>{% endfor %}
+  </select>
+</label>
+{% endif %}
+{%- endmacro %}
+
+{% macro filterbox(table_id, placeholder='Search this table…') -%}
+<label class="searchbox">{{ icon('search', 15) }}<input type="search" data-filter="#{{ table_id }}" placeholder="{{ placeholder }}" aria-label="Search"></label>
+{%- endmacro %}
+
+{% macro avatar(student_row_id, name, has_photo, size='') -%}
+{% if has_photo %}<img class="avatar-img {{ size }}" src="{{ url_for('auth.photo', sid=student_row_id) }}" alt="" loading="lazy">
+{% else %}<span class="avatar {{ size }}">{{ name|initial }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro pager(page, pages, endpoint) -%}
+{% if pages > 1 %}
+<div class="pager">
+  {% if page > 1 %}<a class="btn btn-outline btn-sm" href="{{ url_for(endpoint, page=page-1, **kwargs) }}">← Newer</a>{% endif %}
+  <span class="muted small">Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}<a class="btn btn-outline btn-sm" href="{{ url_for(endpoint, page=page+1, **kwargs) }}">Older →</a>{% endif %}
+</div>
+{% endif %}
+{%- endmacro %}

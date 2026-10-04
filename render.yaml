@@ -3,15 +3,17 @@ services:
     name: eduportal
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --workers 1 --threads 8 --bind 0.0.0.0:$PORT --timeout 120
+    startCommand: gunicorn app:app --workers 1 --threads 8 --bind 0.0.0.0:$PORT --timeout 300
     healthCheckPath: /healthz
     envVars:
       - key: SECRET_KEY
         generateValue: true
-      - key: TEACHER_PASSWORD
+      - key: TEACHER_PASSWORD        # first-time admin password (username: admin)
         sync: false
       - key: PORTAL_TIMEZONE
         sync: false
+      - key: DATA_DIR                # mount a persistent disk here, e.g. /var/data
+        value: /var/data
       - key: TRUST_PROXY
         value: "1"
       - key: COOKIE_SECURE

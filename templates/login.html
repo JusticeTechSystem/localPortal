@@ -1,49 +1,43 @@
 {% extends "base.html" %}
 {% from "_macros.html" import icon, csrf, flashes %}
-{% block title %}Sign in · EduPortal{% endblock %}
+{% block title %}Sign in · {{ school.name }}{% endblock %}
 {% block body_class %}auth-page{% endblock %}
-{% block content %}
+{% block body %}
 <main class="auth-wrap">
   <section class="auth-card">
     <div class="brand brand-center">
-      <span class="brand-mark">{{ icon('cap', 26) }}</span>
-      <h1>EduPortal</h1>
-      <p class="muted">Attendance · CBT exams · Assignments · Class notes</p>
+      {% if school.has_logo %}<img class="logo-lg" src="{{ url_for('main.branding_logo') }}" alt="">
+      {% else %}<span class="brand-mark">{{ icon('cap', 26) }}</span>{% endif %}
+      <h1>{{ school.name }}</h1>
+      <p class="muted">{{ school.tagline }}</p>
     </div>
-
     {{ flashes() }}
-
-    <form method="post" action="{{ url_for('index') }}" class="stack" autocomplete="off">
+    <form method="post" action="{{ url_for('auth.login') }}" class="stack" autocomplete="off">
       {{ csrf() }}
-      <div class="role-switch" role="radiogroup" aria-label="Login as">
-        <label class="role-option">
-          <input type="radio" name="role" value="student" {% if selected_role != 'teacher' %}checked{% endif %}>
-          <span>Student</span>
-        </label>
-        <label class="role-option">
-          <input type="radio" name="role" value="teacher" {% if selected_role == 'teacher' %}checked{% endif %}>
-          <span>Teacher</span>
-        </label>
+      <div class="role-switch" role="radiogroup" aria-label="Sign in as">
+        <label class="role-option"><input type="radio" name="role" value="student" {{ 'checked' if selected != 'staff' }}><span>Student</span></label>
+        <label class="role-option"><input type="radio" name="role" value="staff" {{ 'checked' if selected == 'staff' }}><span>Teacher / Admin</span></label>
       </div>
 
-      <div class="field" data-role-field="student">
-        <label for="student_id">Issued Student ID</label>
-        <input type="text" id="student_id" name="student_id" placeholder="e.g. STU-101"
-               autocapitalize="characters" autocorrect="off" spellcheck="false">
+      <div class="stack" data-role-field="student">
+        <div class="field"><label for="student_id">Student ID</label>
+          <input type="text" id="student_id" name="student_id" placeholder="e.g. STU-001" autocapitalize="characters" autocorrect="off" spellcheck="false"></div>
+        <div class="field"><label for="pin">PIN</label>
+          <div class="password-row"><input type="password" id="pin" name="pin" placeholder="Your PIN" autocomplete="current-password" inputmode="text">
+          <button type="button" class="btn btn-ghost btn-sm" data-toggle-password="pin">Show</button></div></div>
       </div>
 
-      <div class="field" data-role-field="teacher">
-        <label for="password">Teacher password</label>
-        <div class="password-row">
-          <input type="password" id="password" name="password" placeholder="Enter teacher password" autocomplete="current-password">
-          <button type="button" class="btn btn-ghost btn-sm" data-toggle-password="password">Show</button>
-        </div>
+      <div class="stack" data-role-field="staff">
+        <div class="field"><label for="username">Username</label>
+          <input type="text" id="username" name="username" placeholder="Username" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+        <div class="field"><label for="password">Password</label>
+          <div class="password-row"><input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password">
+          <button type="button" class="btn btn-ghost btn-sm" data-toggle-password="password">Show</button></div></div>
       </div>
 
-      <button type="submit" class="btn btn-primary btn-block btn-lg">Enter portal</button>
+      <button type="submit" class="btn btn-primary btn-block btn-lg">Sign in</button>
     </form>
-
-    <p class="auth-foot muted">Don't have an ID? Ask your teacher to issue one.</p>
+    <p class="auth-foot muted">Students: your teacher gives you an ID and a first-time PIN.</p>
   </section>
   <p class="powered muted">Powered by <strong>JusticeTech</strong></p>
 </main>

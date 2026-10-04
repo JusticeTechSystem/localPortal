@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, filterbox, avatar %}
+{% block title %}Who watched · {{ v.title }}{% endblock %}
+{% block content %}
+<div class="page-head row-between"><div><h1>{{ v.title }}</h1><p class="muted">{{ v.duration|fmt_secs }} · {{ v.class_name or 'All classes' }}</p></div>
+  <div class="btn-row"><a class="btn btn-primary btn-sm" href="{{ url_for('videos.report_csv', vid=v.id, class_id=class_filter) }}">{{ icon('download') }} Export CSV</a>
+    <a class="btn btn-outline btn-sm" href="{{ url_for('videos.watch', vid=v.id) }}">{{ icon('play') }} Preview</a><a class="btn btn-outline btn-sm" href="{{ url_for('videos.library') }}">← Videos</a></div></div>
+<div class="stats">
+  <div class="stat"><span class="stat-ico ok">{{ icon('check-circle', 20) }}</span><div><b>{{ summary.completed }}</b><small>Watched completely</small></div></div>
+  <div class="stat"><span class="stat-ico">{{ icon('play', 20) }}</span><div><b>{{ summary.progress }}</b><small>In progress</small></div></div>
+  <div class="stat"><span class="stat-ico warn">{{ icon('clock', 20) }}</span><div><b>{{ summary.not_started }}</b><small>Not started</small></div></div>
+  <div class="stat"><span class="stat-ico">{{ icon('users', 20) }}</span><div><b>{{ summary.total }}</b><small>Students targeted</small></div></div>
+</div>
+<div class="card">
+  <div class="toolbar">{{ filterbox('tbl-watch', 'Search name, ID or class…') }}
+    {% if not v.class_id %}<form method="get" class="inline-form"><label class="inline-label">Class<select name="class_id" data-autosubmit><option value="">All classes</option>
+      {% for c in classes %}<option value="{{ c.id }}" {{ 'selected' if class_filter == c.id }}>{{ c.name }}</option>{% endfor %}</select></label></form>{% endif %}
+    <label class="inline-label">Status<select data-status-filter="#tbl-watch"><option value="">All</option><option>Completed</option><option>In progress</option><option>Not started</option></select></label></div>
+  <div class="table-wrap"><table class="table" id="tbl-watch"><thead><tr><th>Student</th><th>ID</th><th>Class</th><th>Status</th><th>Watched</th><th>Completed at</th><th>Last watched</th></tr></thead><tbody>
+  {% for r in rows %}<tr data-status="{{ r.status }}">
+    <td><div class="person">{{ avatar(r.srow, r.name, False, 'sm') }}<a href="{{ url_for('people.profile', sid=r.srow) }}"><strong>{{ r.name }}</strong></a></div></td>
+    <td><span class="badge">{{ r.student_id }}</span></td><td>{{ r.class_name or '—' }}</td>
+    <td><span class="badge {{ 'badge-success' if r.status == 'Completed' else ('badge-info' if r.status == 'In progress' else '') }}">{{ r.status }}</span></td>
+    <td><div class="meter sm"><span class="fill {{ 'ok' if r.status == 'Completed' }}" data-width="{{ r.percent }}"></span></div><span class="small">{{ r.percent }}% · {{ (r.watched or 0)|fmt_secs }}</span></td>
+    <td class="small">{{ r.completed_at or '—' }}</td><td class="small">{{ r.last_seen or '—' }}</td></tr>
+  {% else %}<tr><td colspan="7" class="empty">No students to show. Add students and assign them to a class.</td></tr>{% endfor %}</tbody></table></div>
+  <p class="muted small">Watch time is verified by the server: only continuous viewing at normal speed is counted, so skipping ahead earns no credit. Completion requires {{ completion_pct }}% of the video.</p>
+</div>
+{% endblock %}

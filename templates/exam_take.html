@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, csrf, flashes %}
+{% block title %}{{ exam.title }} · {{ school.name }}{% endblock %}
+{% block body %}
+<header class="topbar exam-top">
+  <a href="{{ url_for('main.dashboard') }}" class="brand"><span class="brand-mark sm">{{ icon('cap', 20) }}</span><span class="brand-name">{{ school.name }}</span></a>
+  {% if remaining is not none %}<div class="timer" id="timer" data-remaining="{{ remaining }}" data-timed="{{ 1 if timed else 0 }}">{{ icon('clock', 18) }} <span id="timer-text">--:--</span></div>{% endif %}
+</header>
+<main class="container narrow">
+  {{ flashes() }}
+  <div class="card">
+    <h2>{{ icon('monitor', 20) }} {{ exam.title }}</h2>
+    <p class="muted small">{{ questions|length }} question{{ '' if questions|length == 1 else 's' }} · closes {{ exam.due_date|fmt_dt }} ({{ tz_label }})
+      {% if timed %} · <strong>{{ exam.duration_min }}-minute time limit — it submits automatically when time is up</strong>{% endif %} · one attempt only</p>
+    <form id="exam-form" action="{{ url_for('academics.submit_exam', eid=exam.id) }}" method="post" class="stack" data-confirm="Submit your final answers? You cannot retake this exam.">{{ csrf() }}
+      {% for q in questions %}
+      <fieldset class="question"><legend><span class="q-num">{{ loop.index }}</span> {{ q.question }} {% if q.points and q.points > 1 %}<span class="badge">{{ q.points }} pts</span>{% endif %}</legend>
+        {% if q.image %}<img class="q-img" src="{{ url_for('academics.question_image', qid=q.id) }}" alt="Question picture">{% endif %}
+        {% if q.qtype == 'short' %}
+          <input type="text" name="q_{{ q.id }}" placeholder="Type your answer" autocomplete="off" maxlength="300">
+        {% else %}
+          {% for value, text in q.options %}
+          <label class="choice"><input type="radio" name="q_{{ q.id }}" value="{{ value }}"><span class="choice-letter">{{ 'ABCD'[loop.index0] }}</span><span>{{ text }}</span></label>
+          {% endfor %}
+        {% endif %}
+      </fieldset>
+      {% endfor %}
+      <button type="submit" class="btn btn-success btn-lg btn-block">{{ icon('check-circle', 18) }} Submit final answers</button>
+    </form>
+    <a href="{{ url_for('academics.exams') }}" class="btn btn-outline btn-block back-link">Leave for now{% if timed %} (the clock keeps running){% endif %}</a>
+  </div>
+</main>
+{% endblock %}

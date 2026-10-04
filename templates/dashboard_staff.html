@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, csrf %}
+{% block title %}Dashboard · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Welcome back, {{ me.name.split(' ')[0] }}</h1><p class="muted">Here's what's happening in {{ school.name }}.</p></div>
+<div class="stats">
+  <a class="stat" href="{{ url_for('people.students') }}"><span class="stat-ico">{{ icon('users', 20) }}</span><div><b>{{ stats.students }}</b><small>Students</small></div></a>
+  <a class="stat" href="{{ url_for('people.classes') }}"><span class="stat-ico">{{ icon('layers', 20) }}</span><div><b>{{ stats.classes }}</b><small>Classes</small></div></a>
+  <a class="stat" href="{{ url_for('academics.exams') }}"><span class="stat-ico">{{ icon('monitor', 20) }}</span><div><b>{{ stats.exams }}</b><small>CBT exams</small></div></a>
+  <a class="stat" href="{{ url_for('videos.library') }}"><span class="stat-ico">{{ icon('video', 20) }}</span><div><b>{{ stats.videos }}</b><small>Videos</small></div></a>
+  <a class="stat" href="{{ url_for('academics.submissions', status='pending') }}"><span class="stat-ico warn">{{ icon('clock', 20) }}</span><div><b>{{ stats.pending }}</b><small>Awaiting grading</small></div></a>
+</div>
+
+<div class="grid-cols">
+  <div class="card">
+    <h2>{{ icon('bell', 20) }} Announcements</h2>
+    {% for a in announcements %}
+      <div class="note-item"><strong>{% if a.pinned %}{{ icon('pin', 14) }} {% endif %}{{ a.title }}</strong>
+        <span class="muted small">{{ a.class_name or 'All classes' }} · {{ a.created_at }}</span>
+        {% if a.body %}<p>{{ a.body|nl2br }}</p>{% endif %}</div>
+    {% else %}<p class="empty">Nothing posted yet.</p>{% endfor %}
+    <a class="btn btn-outline btn-sm" href="{{ url_for('academics.announcements') }}">Manage announcements</a>
+  </div>
+  <div class="card">
+    <h2>{{ icon('check-square', 20) }} Latest submissions</h2>
+    <ul class="plain">{% for s in recent_subs %}<li><strong>{{ s.name or 'Student' }}</strong> · {{ s.title or 'Deleted assignment' }} <span class="badge {{ 'badge-success' if s.grade != 'Pending' }}">{{ s.grade }}</span></li>
+      {% else %}<li class="empty">No submissions yet.</li>{% endfor %}</ul>
+    <h2 class="mt">{{ icon('monitor', 20) }} Latest exam results</h2>
+    <ul class="plain">{% for r in recent_results %}<li><strong>{{ r.name or 'Student' }}</strong> · {{ r.title }} <span class="badge">{{ r.score }}/{{ r.total }}</span></li>
+      {% else %}<li class="empty">No results yet.</li>{% endfor %}</ul>
+  </div>
+</div>
+{% endblock %}

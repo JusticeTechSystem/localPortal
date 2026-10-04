@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Review · {{ exam.title }}{% endblock %}
+{% block content %}
+<div class="page-head row-between"><div><h1>{{ exam.title }} — review</h1>
+  <p class="muted">{% if student and is_staff %}{{ student.name }} ({{ student.student_id }}) · {% endif %}Score <strong>{{ result.score }} / {{ result.total }}</strong> ({{ result.score|pct(result.total) }}%)</p></div>
+  <a class="btn btn-outline btn-sm" href="{{ url_for('academics.exams') if not is_staff else url_for('academics.exam_results', eid=exam.id) }}">← Back</a></div>
+{% if result.status == 'timeout' %}<div class="flash flash-error">{{ icon('alert') }}<span>Time ran out before this exam was submitted.</span></div>{% endif %}
+{% if not has_detail %}<div class="flash flash-info"><span>Question-by-question detail was not recorded for this result (it was taken before this feature existed).</span></div>{% endif %}
+{% for q in rows %}{% set t = q.qtype or 'mcq' %}
+<div class="card qreview {{ ('ok' if q.is_correct else 'bad') if has_detail }}">
+  <div class="qhead"><span class="q-num">{{ loop.index }}</span><strong class="grow">{{ q.question }}</strong>
+    {% if has_detail %}<span class="badge {{ 'badge-success' if q.is_correct else 'badge-danger' }}">{{ (q.awarded or 0) ~ ' / ' ~ (q.points or 1) }} pt</span>{% endif %}</div>
+  {% if q.image %}<img class="q-img" src="{{ url_for('academics.question_image', qid=q.id) }}" alt="">{% endif %}
+  {% if t in ('mcq', 'tf') %}
+    <ol class="opts" type="A">{% for l, text in ((('A', q.opt_a), ('B', q.opt_b), ('C', q.opt_c), ('D', q.opt_d)) if t == 'mcq' else (('A', 'True'), ('B', 'False'))) %}
+      <li class="{{ 'correct' if q.correct_opt == l }} {{ 'chosen' if has_detail and q.answer == l }}">{{ text }}{% if q.correct_opt == l %} <span class="tag">correct</span>{% endif %}{% if has_detail and q.answer == l and q.correct_opt != l %} <span class="tag wrong">your answer</span>{% elif has_detail and q.answer == l %} <span class="tag">your answer</span>{% endif %}</li>{% endfor %}</ol>
+  {% else %}
+    <p>{% if has_detail %}Answer given: <strong>{{ q.answer or '(blank)' }}</strong>{% endif %}</p>
+    <p class="muted">Accepted: <strong>{{ q.correct_opt.replace('|', ' / ') }}</strong></p>
+  {% endif %}
+  {% if has_detail and not q.answer %}<p class="muted small">Not answered.</p>{% endif %}
+</div>
+{% endfor %}
+{% endblock %}

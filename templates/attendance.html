@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import icon, filterbox %}
+{% block title %}Attendance · {{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Attendance</h1><p class="muted">One record is created the first time a student signs in each day.</p></div>
+<div class="card">
+  <form method="get" class="form-row tight">
+    <label class="inline-label">From<input type="date" name="from" value="{{ start }}"></label>
+    <label class="inline-label">To<input type="date" name="to" value="{{ end }}"></label>
+    <label class="inline-label">Class<select name="class_id"><option value="">All classes</option>{% for c in classes %}<option value="{{ c.id }}" {{ 'selected' if class_id == c.id }}>{{ c.name }}</option>{% endfor %}</select></label>
+    <button class="btn btn-primary">{{ icon('search') }} Show report</button>
+    <a class="btn btn-outline" href="{{ url_for('reports.attendance_csv', **{'from': start, 'to': end, 'class_id': class_id}) }}">{{ icon('download') }} Summary CSV</a>
+    <a class="btn btn-outline" href="{{ url_for('reports.attendance_csv', **{'from': start, 'to': end, 'class_id': class_id, 'kind': 'log'}) }}">{{ icon('download') }} Daily log CSV</a>
+  </form>
+  <p class="muted small"><strong>{{ days|length }}</strong> school day{{ '' if days|length == 1 else 's' }} with at least one sign-in between {{ start }} and {{ end }}.</p>
+</div>
+<div class="card"><h2>{{ icon('chart', 20) }} Summary by student</h2><div class="toolbar">{{ filterbox('tbl-att-sum', 'Search student…') }}</div>
+<div class="table-wrap"><table class="table" id="tbl-att-sum"><thead><tr><th>Student</th><th>ID</th><th>Class</th><th>Present</th><th>Attendance</th></tr></thead><tbody>
+{% for r in summary %}<tr><td><a href="{{ url_for('people.profile', sid=r.id) }}"><strong>{{ r.name }}</strong></a></td><td><span class="badge">{{ r.student_id }}</span></td><td>{{ r.class_name }}</td><td>{{ r.present }} / {{ r.total }}</td>
+  <td><div class="meter sm"><span class="fill {{ 'ok' if r.percent >= 75 else ('bad' if r.percent < 50) }}" data-width="{{ r.percent }}"></span></div><span class="small">{{ r.percent }}%</span></td></tr>
+{% else %}<tr><td colspan="5" class="empty">No students found.</td></tr>{% endfor %}</tbody></table></div></div>
+<div class="card"><h2>{{ icon('calendar', 20) }} Daily log</h2><div class="toolbar">{{ filterbox('tbl-att-log', 'Search…') }}</div>
+<div class="table-wrap scroll-y"><table class="table" id="tbl-att-log"><thead><tr><th>Date</th><th>Time</th><th>Student</th><th>ID</th><th>Class</th></tr></thead><tbody>
+{% for a in log %}<tr><td><strong>{{ a.login_date }}</strong></td><td>{{ a.login_time }}</td><td>{{ a.name or '—' }}</td><td><span class="badge">{{ a.student_id }}</span></td><td>{{ a.class_name or '—' }}</td></tr>
+{% else %}<tr><td colspan="5" class="empty">No sign-ins in this period.</td></tr>{% endfor %}</tbody></table></div>
+<p class="muted small">Showing up to 500 of the most recent sign-ins; export the CSV for the complete log.</p></div>
+{% endblock %}
